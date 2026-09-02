@@ -1,0 +1,8 @@
+build/
+builddir/
+*.o
+*.a
+*.so
+.deps/
+meson-private/
+.venv/
