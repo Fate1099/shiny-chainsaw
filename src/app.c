@@ -19,8 +19,8 @@ struct _MdApp
     GtkWidget* search_button;
     GtkWidget* zoom_button;
     GtkWidget* search_controls;
-    gchar* pending_file;
-    GArray* search_matches; /* of SearchMatch */
+    GPtrArray* pending_files; /* of gchar*, opened once the window exists */
+    GArray* search_matches;   /* of SearchMatch */
     gint search_index;
     double zoom;
 };
@@ -592,32 +592,44 @@ void md_app_open_file(MdApp* app, const gchar* path, GError** error)
     gtk_statusbar_push(GTK_STATUSBAR(app->statusbar), ctx, path);
 }
 
-/* Captures the --file CLI argument before activate runs. On a handoff to an
- * already-running window, opens the file immediately. */
-static gboolean md_app_command_line(GApplication* application, GApplicationCommandLine* cmdline)
+/* Queue a file to open now (window exists) or once activate builds it. */
+static void queue_file(MdApp* app, const gchar* path)
 {
-    MdApp* app = MD_APP(application);
-    GVariantDict* options = g_application_command_line_get_options_dict(cmdline);
-    gchar* file = NULL;
-    if (options != NULL && g_variant_dict_lookup(options, "file", "&s", &file))
+    if (app->window != NULL)
     {
-        if (app->window != NULL)
+        GError* error = NULL;
+        md_app_open_file(app, path, &error);
+        if (error != NULL)
         {
-            GError* error = NULL;
-            md_app_open_file(app, file, &error);
-            if (error != NULL)
-            {
-                g_printerr("md-viewer: %s\n", error->message);
-                g_error_free(error);
-            }
-        }
-        else
-        {
-            g_free(app->pending_file);
-            app->pending_file = g_strdup(file);
+            g_printerr("md-viewer: %s\n", error->message);
+            g_error_free(error);
         }
     }
-    return FALSE; /* continue to activate */
+    else
+    {
+        g_ptr_array_add(app->pending_files, g_strdup(path));
+    }
+}
+
+/* Handles positional file arguments (as passed by the desktop file's %F and
+ * by the -f translation in main.c). Builds the window on first launch; on a
+ * handoff the existing window is reused. */
+static void md_app_open(GApplication* application, GFile** files, gint n_files, const gchar* hint)
+{
+    (void)hint;
+    MdApp* app = MD_APP(application);
+    gboolean had_window = (app->window != NULL);
+    for (gint i = 0; i < n_files; i++)
+    {
+        gchar* path = g_file_get_path(files[i]);
+        if (path != NULL)
+        {
+            queue_file(app, path);
+            g_free(path);
+        }
+    }
+    if (!had_window)
+        g_application_activate(application); /* build the window; opens queued files */
 }
 
 /* ------------------------------------------------------------------ */
@@ -662,16 +674,19 @@ static void md_app_activate(GApplication* application)
     set_placeholder(app);
     apply_zoom(app);
 
-    if (app->pending_file != NULL)
+    if (app->pending_files->len > 0)
     {
-        GError* error = NULL;
-        md_app_open_file(app, app->pending_file, &error);
-        if (error != NULL)
+        for (guint i = 0; i < app->pending_files->len; i++)
         {
-            g_printerr("md-viewer: %s\n", error->message);
-            g_error_free(error);
+            GError* error = NULL;
+            md_app_open_file(app, g_ptr_array_index(app->pending_files, i), &error);
+            if (error != NULL)
+            {
+                g_printerr("md-viewer: %s\n", error->message);
+                g_error_free(error);
+            }
         }
-        g_clear_pointer(&app->pending_file, g_free);
+        g_ptr_array_set_size(app->pending_files, 0);
     }
 
     gtk_widget_show_all(app->window);
@@ -680,15 +695,15 @@ static void md_app_activate(GApplication* application)
 
 static void md_app_init(MdApp* app)
 {
+    app->pending_files = g_ptr_array_new_with_free_func(g_free);
     app->search_matches = g_array_new(FALSE, TRUE, sizeof(SearchMatch));
-    g_signal_connect(app, "command-line", G_CALLBACK(md_app_command_line), NULL);
 }
 
 static void md_app_dispose(GObject* object)
 {
     MdApp* app = MD_APP(object);
+    g_clear_pointer(&app->pending_files, g_ptr_array_unref);
     g_clear_pointer(&app->search_matches, g_array_unref);
-    g_clear_pointer(&app->pending_file, g_free);
     G_OBJECT_CLASS(md_app_parent_class)->dispose(object);
 }
 
@@ -696,11 +711,13 @@ static void md_app_class_init(MdAppClass* klass)
 {
     G_OBJECT_CLASS(klass)->dispose = md_app_dispose;
     G_APPLICATION_CLASS(klass)->activate = md_app_activate;
+    G_APPLICATION_CLASS(klass)->open = md_app_open;
 }
 
 MdApp* md_app_new(void)
 {
-    MdApp* app = g_object_new(MD_TYPE_APP, "application-id", "org.example.mdviewer", NULL);
+    MdApp* app = g_object_new(MD_TYPE_APP, "application-id", "org.example.mdviewer", "flags",
+                              G_APPLICATION_HANDLES_OPEN, NULL);
 
     const GOptionEntry entries[] = {
         {"file", 'f', 0, G_OPTION_ARG_FILENAME, NULL, "Markdown file to open", "FILE"}, {NULL}};

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=md-viewer
+GenericName=Markdown Viewer
+Comment=Lightweight Markdown viewer for technical docs
+Exec=md-viewer %F
+Icon=md-viewer
+Terminal=false
+Categories=Utility;TextEditor;
+MimeType=text/markdown;
+StartupNotify=true

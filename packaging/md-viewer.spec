@@ -8,6 +8,7 @@ URL:            https://example.org/md-viewer
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc
+BuildRequires:  desktop-file-utils
 BuildRequires:  meson >= 0.63
 BuildRequires:  ninja-build
 BuildRequires:  pkgconfig(glib-2.0)
@@ -30,14 +31,25 @@ implemented in-repo in C.
 
 %install
 %meson_install
+desktop-file-validate %{buildroot}%{_datadir}/applications/md-viewer.desktop
 
 %check
 %meson_test
+
+%post
+update-desktop-database %{_datadir}/applications &> /dev/null || :
+gtk-update-icon-cache -f -t %{_datadir}/icons/hicolor &> /dev/null || :
+
+%postun
+update-desktop-database %{_datadir}/applications &> /dev/null || :
+gtk-update-icon-cache -f -t %{_datadir}/icons/hicolor &> /dev/null || :
 
 %files
 %license LICENSE
 %doc README.md CHANGELOG.md
 %{_bindir}/md-viewer
+%{_datadir}/applications/md-viewer.desktop
+%{_datadir}/icons/hicolor/scalable/apps/md-viewer.svg
 
 %changelog
 * Wed Sep 09 2026 jimipohlers <jimipohlers@outlook.de> - 0.1.0-1

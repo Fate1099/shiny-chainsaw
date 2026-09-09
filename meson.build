@@ -26,5 +26,10 @@ gtkdep = dependency('gtk+-3.0', version: '>= 3.24')
 run_target('lint',
   command: [find_program('sh'), files('scripts/lint.sh')])
 
+install_data('data/md-viewer.desktop',
+  install_dir: get_option('datadir') / 'applications')
+install_data('data/icons/md-viewer.svg',
+  install_dir: get_option('datadir') / 'icons/hicolor/scalable/apps')
+
 subdir('src')
 subdir('tests')
