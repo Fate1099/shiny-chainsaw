@@ -44,7 +44,8 @@ meson test -C build
 CommonMark block + inline parsing (headings, paragraphs, lists, code, blockquotes,
 links/images, emphasis) with a GTK renderer and file-open/search UI. GFM and
 Markdown Extra extensions are planned but not yet implemented; see
-[AGENTS.md](AGENTS.md) and [docs/roadmap.md](docs/roadmap.md).
+[AGENTS.md](AGENTS.md) and [docs/roadmap.md](docs/roadmap.md). Release history
+is in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
