@@ -47,6 +47,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Removed stale-iterator use in the GTK renderer (offsets used instead).
 - Launching `-f` at an already-running instance now opens the file in the
   existing window instead of silently dropping it.
+- Opening a file via `-f`, `--file`, or a positional argument now works on a
+  fresh launch (previously GApplication swallowed the option and the window
+  was never built for positional args).
+- RPM package now includes desktop integration: a `.desktop` file registering
+  `text/markdown` MIME handling, an SVG icon, and
+  `update-desktop-database`/`gtk-update-icon-cache` post scripts.
 
 ### Planned
 
