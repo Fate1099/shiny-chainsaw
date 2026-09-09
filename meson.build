@@ -21,5 +21,10 @@ add_project_arguments(cc.get_supported_arguments([
 
 gtkdep = dependency('gtk+-3.0', version: '>= 3.24')
 
+# Lint target (formatting + static analysis). Requires clang-format and/or
+# clang-tidy to be installed; skips whichever tool is missing.
+run_target('lint',
+  command: [find_program('sh'), files('scripts/lint.sh')])
+
 subdir('src')
 subdir('tests')

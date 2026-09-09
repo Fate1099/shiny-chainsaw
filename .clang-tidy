@@ -1,0 +1,12 @@
+Checks: >-
+  -*, clang-analyzer-*, performance-*,
+  bugprone-*,
+  -bugprone-reserved-identifier,
+  -bugprone-casting-through-void,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-assignment-in-if-condition,
+  -performance-no-int-to-ptr,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-analyzer-optin.core.EnumCastOutOfRange
+HeaderFilterRegex: '(src|tests)/'
+WarningsAsErrors: ''

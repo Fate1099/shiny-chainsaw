@@ -22,8 +22,8 @@ renderers — the parser lives in-repo and is implemented in pure C.
 ```sh
 meson setup build
 ninja -C build
-./build/md-viewer            # open a file picker
-./build/md-viewer -f doc.md  # open a file directly
+./build/src/md-viewer            # open a file picker
+./build/src/md-viewer -f doc.md  # open a file directly
 ```
 
 ## Test
@@ -34,14 +34,17 @@ meson test -C build
 
 ## Project layout
 
-- `src/`    — app source (entry point, GTK UI, pure-C parser)
+- `src/`    — app source (entry point, GTK UI, pure-C parser, GTK renderer, shortcuts)
 - `tests/`  — parser unit tests
-- `data/`   — GLib resources (CSS, icons)
+- `data/`   — GLib resources (bundled manual)
 - `docs/`   — design notes and roadmap
 
 ## Status
 
-Project scaffolding only. See `AGENTS.md` for the roadmap and conventions.
+CommonMark block + inline parsing (headings, paragraphs, lists, code, blockquotes,
+links/images, emphasis) with a GTK renderer and file-open/search UI. GFM and
+Markdown Extra extensions are planned but not yet implemented; see
+[AGENTS.md](AGENTS.md) and [docs/roadmap.md](docs/roadmap.md).
 
 ## License
 
