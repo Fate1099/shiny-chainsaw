@@ -26,6 +26,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bundled manual rendered via GResource on first launch.
 - Meson build with lint target (clang-format / clang-tidy) and table-driven
   parser test suite (46 cases).
+- RPM packaging pipeline (`packaging/md-viewer.spec` + `build-rpm.sh`) that
+  builds a release, runs the tests, and produces/installs an RPM.
 
 ### Fixed
 

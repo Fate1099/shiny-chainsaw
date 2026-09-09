@@ -32,6 +32,21 @@ ninja -C build
 meson test -C build
 ```
 
+## Package (RPM)
+
+Build and install an RPM for Fedora-style distros (requires `rpmbuild`, the
+`meson` and `ninja-build` packages, and the `%meson` RPM macros from
+`redhat-rpm-config`):
+
+```sh
+./packaging/build-rpm.sh            # build RPMs into dist/rpmbuild/
+./packaging/build-rpm.sh install    # build and sudo dnf install
+```
+
+The script validates the version matches `meson.build`, builds + tests a
+release build, archives the source with `meson dist`, and feeds it to
+`rpmbuild`. See `packaging/md-viewer.spec`.
+
 ## Project layout
 
 - `src/`    — app source (entry point, GTK UI, pure-C parser, GTK renderer, shortcuts)

@@ -1,3 +1,4 @@
+.venv/
 build/
 builddir/
 *.o
@@ -5,4 +6,6 @@ builddir/
 *.so
 .deps/
 meson-private/
-.venv/
+dist/
+meson-dist/
+build-rpm/
