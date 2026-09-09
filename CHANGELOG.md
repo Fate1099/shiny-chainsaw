@@ -6,15 +6,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Planned
-
-- GFM extensions (tables, task lists, strikethrough, autolinks)
-- Markdown Extra extensions (definition lists, footnotes, abbreviations)
-- CommonMark `spec.txt` conformance harness
-- Live reload on file change
-
-## [0.1.0] - 2026-09-09
-
 ### Added
 
 - Pure-C CommonMark parser producing an `MdNode` AST: ATX headings,
@@ -52,3 +43,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Pango tags are named and reused across renders, so re-opening files no
   longer grows the buffer's tag table.
 - Removed stale-iterator use in the GTK renderer (offsets used instead).
+
+### Planned
+
+- GFM extensions (tables, task lists, strikethrough, autolinks)
+- Markdown Extra extensions (definition lists, footnotes, abbreviations)
+- CommonMark `spec.txt` conformance harness
+- Live reload on file change
