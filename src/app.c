@@ -592,7 +592,8 @@ void md_app_open_file(MdApp* app, const gchar* path, GError** error)
     gtk_statusbar_push(GTK_STATUSBAR(app->statusbar), ctx, path);
 }
 
-/* Captures the --file CLI argument before activate runs. */
+/* Captures the --file CLI argument before activate runs. On a handoff to an
+ * already-running window, opens the file immediately. */
 static gboolean md_app_command_line(GApplication* application, GApplicationCommandLine* cmdline)
 {
     MdApp* app = MD_APP(application);
@@ -600,8 +601,21 @@ static gboolean md_app_command_line(GApplication* application, GApplicationComma
     gchar* file = NULL;
     if (options != NULL && g_variant_dict_lookup(options, "file", "&s", &file))
     {
-        g_free(app->pending_file);
-        app->pending_file = g_strdup(file);
+        if (app->window != NULL)
+        {
+            GError* error = NULL;
+            md_app_open_file(app, file, &error);
+            if (error != NULL)
+            {
+                g_printerr("md-viewer: %s\n", error->message);
+                g_error_free(error);
+            }
+        }
+        else
+        {
+            g_free(app->pending_file);
+            app->pending_file = g_strdup(file);
+        }
     }
     return FALSE; /* continue to activate */
 }

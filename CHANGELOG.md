@@ -45,6 +45,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Pango tags are named and reused across renders, so re-opening files no
   longer grows the buffer's tag table.
 - Removed stale-iterator use in the GTK renderer (offsets used instead).
+- Launching `-f` at an already-running instance now opens the file in the
+  existing window instead of silently dropping it.
 
 ### Planned
 
