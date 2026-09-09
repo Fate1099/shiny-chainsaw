@@ -30,6 +30,8 @@ install_data('data/md-viewer.desktop',
   install_dir: get_option('datadir') / 'applications')
 install_data('data/icons/md-viewer.svg',
   install_dir: get_option('datadir') / 'icons/hicolor/scalable/apps')
+install_data('data/org.example.mdviewer.gschema.xml',
+  install_dir: get_option('datadir') / 'glib-2.0' / 'schemas')
 
 subdir('src')
 subdir('tests')

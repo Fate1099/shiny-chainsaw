@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.example.mdviewer" path="/org/example/mdviewer/">
+    <key name="image-max-width" type="i">
+      <default>0</default>
+      <summary>Maximum image display width</summary>
+      <description>Maximum width in pixels for rendered images. 0 fits images to the window width; the image is never scaled up beyond its native size.</description>
+    </key>
+  </schema>
+</schemalist>

@@ -9,6 +9,8 @@ renderers — the parser lives in-repo and is implemented in pure C.
 - Standalone GTK3 desktop app
 - Pure-C Markdown parser (no external renderer, no GTK dependency in the core)
 - Parser unit-testable headlessly
+- Inline image rendering (remote via libsoup3, local files, relative paths)
+- HTML comment stripping
 
 ## Requirements
 
@@ -16,6 +18,7 @@ renderers — the parser lives in-repo and is implemented in pure C.
 - Meson ≥ 0.63, Ninja
 - GTK3 (≥ 3.24) dev headers
 - GLib dev headers
+- libsoup3 dev headers (for remote image loading)
 
 ## Build & run
 

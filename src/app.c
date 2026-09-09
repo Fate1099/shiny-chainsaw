@@ -3,6 +3,8 @@
 #include "render.h"
 #include "shortcuts.h"
 
+#include <libsoup/soup.h>
+
 struct _MdApp
 {
     GtkApplication parent_instance;
@@ -21,6 +23,9 @@ struct _MdApp
     GtkWidget* search_controls;
     GPtrArray* pending_files; /* of gchar*, opened once the window exists */
     GArray* search_matches;   /* of SearchMatch */
+    SoupSession* session;
+    gchar* base_dir; /* dir of the currently open file, for image paths */
+    guint image_max_width;
     gint search_index;
     double zoom;
 };
@@ -35,6 +40,8 @@ G_DEFINE_TYPE(MdApp, md_app, GTK_TYPE_APPLICATION)
 
 #define MD_MIN_ZOOM 0.5
 #define MD_MAX_ZOOM 4.0
+#define MD_SIDEBAR_FRACTION 0.12
+#define MD_SIDEBAR_MIN_WIDTH 100
 
 /* ------------------------------------------------------------------ */
 /* Default content: the bundled manual (doubles as a parser torture test) */
@@ -46,6 +53,8 @@ static void render_markdown(MdApp* app, const gchar* markdown);
 
 static void set_placeholder(MdApp* app)
 {
+    g_clear_pointer(&app->base_dir, g_free);
+
     GBytes* bytes = g_resources_lookup_data(MD_MANUAL_RESOURCE, G_RESOURCE_LOOKUP_FLAGS_NONE, NULL);
     if (bytes == NULL)
     {
@@ -444,8 +453,11 @@ static GtkWidget* sidebar_new(MdApp* app)
     g_signal_connect(app->outline_view, "row-activated", G_CALLBACK(outline_activated), app);
 
     GtkWidget* scrolled = gtk_scrolled_window_new(NULL, NULL);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_NEVER,
+    /* AUTOMATIC (not NEVER) so the pane's minimum width tracks the scrollbar
+     * instead of the widest outline row, letting the sidebar shrink freely. */
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC,
                                    GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_size_request(scrolled, MD_SIDEBAR_MIN_WIDTH, -1);
     gtk_container_add(GTK_CONTAINER(scrolled), app->outline_view);
     return scrolled;
 }
@@ -552,6 +564,20 @@ static gchar* read_file_to_string(const gchar* path, GError** error)
     return contents;
 }
 
+/* Image width cap from GSettings; 0 (auto-fit) when the schema is missing. */
+static guint md_image_max_width(void)
+{
+    GSettingsSchemaSource* source = g_settings_schema_source_get_default();
+    GSettingsSchema* schema = g_settings_schema_source_lookup(source, "org.example.mdviewer", TRUE);
+    if (schema == NULL)
+        return 0;
+    GSettings* settings = g_settings_new("org.example.mdviewer");
+    gint value = g_settings_get_int(settings, "image-max-width");
+    g_object_unref(settings);
+    g_settings_schema_unref(schema);
+    return value > 0 ? (guint)value : 0;
+}
+
 static void render_markdown(MdApp* app, const gchar* markdown)
 {
     GError* error = NULL;
@@ -562,7 +588,12 @@ static void render_markdown(MdApp* app, const gchar* markdown)
         g_clear_error(&error);
         return;
     }
-    md_render_to_buffer(doc, gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->text_view)));
+    MdRenderOptions options = {0};
+    options.view = GTK_TEXT_VIEW(app->text_view);
+    options.session = app->session;
+    options.base_dir = app->base_dir;
+    options.max_width = app->image_max_width;
+    md_render_to_buffer(doc, &options);
     populate_outline(app, doc);
     md_node_free(doc);
 
@@ -578,6 +609,9 @@ void md_app_open_file(MdApp* app, const gchar* path, GError** error)
     gchar* markdown = read_file_to_string(path, error);
     if (markdown == NULL)
         return;
+
+    g_free(app->base_dir);
+    app->base_dir = g_path_get_dirname(path);
 
     render_markdown(app, markdown);
     g_free(markdown);
@@ -658,7 +692,6 @@ static void md_app_activate(GApplication* application)
     app->paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_paned_pack1(GTK_PANED(app->paned), sidebar, FALSE, FALSE);
     gtk_paned_pack2(GTK_PANED(app->paned), document, TRUE, FALSE);
-    gtk_paned_set_position(GTK_PANED(app->paned), 260);
 
     GtkWidget* layout = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_box_pack_start(GTK_BOX(layout), app->paned, TRUE, TRUE, 0);
@@ -669,6 +702,11 @@ static void md_app_activate(GApplication* application)
     gtk_window_set_default_size(GTK_WINDOW(app->window), 900, 640);
     gtk_window_set_titlebar(GTK_WINDOW(app->window), header);
     gtk_container_add(GTK_CONTAINER(app->window), layout);
+
+    /* Sidebar defaults to ~12% of the window width. */
+    gint win_w = 0, win_h = 0;
+    gtk_window_get_default_size(GTK_WINDOW(app->window), &win_w, &win_h);
+    gtk_paned_set_position(GTK_PANED(app->paned), (gint)(win_w * MD_SIDEBAR_FRACTION));
 
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(app->sidebar_button), TRUE);
     set_placeholder(app);
@@ -697,6 +735,8 @@ static void md_app_init(MdApp* app)
 {
     app->pending_files = g_ptr_array_new_with_free_func(g_free);
     app->search_matches = g_array_new(FALSE, TRUE, sizeof(SearchMatch));
+    app->session = soup_session_new();
+    app->image_max_width = md_image_max_width();
 }
 
 static void md_app_dispose(GObject* object)
@@ -704,6 +744,8 @@ static void md_app_dispose(GObject* object)
     MdApp* app = MD_APP(object);
     g_clear_pointer(&app->pending_files, g_ptr_array_unref);
     g_clear_pointer(&app->search_matches, g_array_unref);
+    g_clear_pointer(&app->session, g_object_unref);
+    g_clear_pointer(&app->base_dir, g_free);
     G_OBJECT_CLASS(md_app_parent_class)->dispose(object);
 }
 

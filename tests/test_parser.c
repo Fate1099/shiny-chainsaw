@@ -65,6 +65,9 @@ static const Case CASES[] = {
      "<blockquote>\n<blockquote>\n<p>nested</p>\n</blockquote>\n</blockquote>\n"},
     {"link with title", "[text](url \"title\")", "<p><a href=\"url\">text</a></p>\n"},
     {"heading with closing hashes", "## foo ##", "<h2>foo ##</h2>\n"},
+    {"html comment dropped", "<!-- note -->\n\npara", "<p>para</p>\n"},
+    {"multiline html comment", "<!-- a\nb -->\n\npara", "<p>para</p>\n"},
+    {"inline html comment", "a <!-- x --> b", "<p>a  b</p>\n"},
 };
 
 static void run_case(const Case* c)

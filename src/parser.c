@@ -263,6 +263,16 @@ static void parse_inline(GPtrArray* out, const char* s)
     {
         char c = *p;
 
+        /* HTML comment: skip to the closing --> */
+        if (c == '<' && p[1] == '!' && p[2] == '-' && p[3] == '-')
+        {
+            add_text_node(out, text_start, (size_t)(p - text_start));
+            const char* end = strstr(p + 4, "-->");
+            p = (end != NULL) ? end + 3 : p + 4;
+            text_start = p;
+            continue;
+        }
+
         /* backslash escape */
         if (c == '\\' && p[1] != '\0')
         {
@@ -613,6 +623,16 @@ static void parse_blocks(MdNode* container, char** lines, size_t n, size_t inden
 
         /* strip up to 3 leading spaces for the remaining block classifiers */
         content += sp;
+
+        /* HTML comment block: drop it entirely (may span lines) */
+        if (strncmp(content, "<!--", 4) == 0)
+        {
+            while (i < n && strstr(lines[i], "-->") == NULL)
+                i++;
+            if (i < n)
+                i++;
+            continue;
+        }
 
         /* ATX heading */
         int level;

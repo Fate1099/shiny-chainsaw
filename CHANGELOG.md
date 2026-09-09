@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Inline image rendering: images are embedded in the document and loaded
+  asynchronously (remote via libsoup3, local files, and paths relative to the
+  opened document). The alt text is shown as a caption under the image; a
+  broken-image placeholder is shown when loading or decoding fails.
+- `image-max-width` GSettings key (`org.example.mdviewer`) to cap image width;
+  0 (default) fits images to the window width without upscaling.
+- HTML comments (`<!-- ... -->`) are stripped from the output.
+- Sidebar outline now has a sane minimum width (no longer locked to the widest
+  heading) and defaults to ~12% of the window width.
 - Pure-C CommonMark parser producing an `MdNode` AST: ATX headings,
   paragraphs, unordered/ordered lists (with nesting), fenced and indented
   code blocks, blockquotes, thematic breaks, links, images, emphasis/strong,

@@ -14,9 +14,11 @@ app_sources = files(
   'shortcuts.c',
 ) + resources
 
+soupdep = dependency('libsoup-3.0', version: '>= 3.0')
+
 executable('md-viewer',
   app_sources,
   include_directories: include_directories('.'),
-  dependencies: [gtkdep],
+  dependencies: [gtkdep, soupdep],
   install: true,
 )
