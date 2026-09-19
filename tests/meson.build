@@ -13,3 +13,16 @@ foreach name, sources : tests
   )
   test(name, test_exe)
 endforeach
+
+spec_tests = executable(
+  'spec_tests',
+  sources: ['spec_tests.c', '../src/parser.c'],
+  include_directories: include_directories('../src'),
+  dependencies: [test_dep],
+)
+
+commonmark_spec = join_paths(meson.current_source_dir(), 'spec', 'commonmark.txt')
+gfm_spec = join_paths(meson.current_source_dir(), 'spec', 'gfm.txt')
+
+test('commonmark-spec', spec_tests, args: [commonmark_spec, 'commonmark'], suite: 'conformance')
+test('gfm-spec', spec_tests, args: [gfm_spec, 'gfm'], suite: 'conformance')
