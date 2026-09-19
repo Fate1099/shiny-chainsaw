@@ -40,6 +40,9 @@ typedef enum
     MD_NODE_ITEM,
     MD_NODE_CODE_BLOCK,
     MD_NODE_THEMATIC_BREAK,
+    MD_NODE_TABLE,
+    MD_NODE_TABLE_ROW,
+    MD_NODE_TABLE_CELL,
     /* inline-level */
     MD_NODE_TEXT,
     MD_NODE_EMPHASIS,
@@ -55,6 +58,14 @@ typedef enum
     MD_LIST_ORDERED,
 } MdListType;
 
+typedef enum
+{
+    MD_ALIGN_NONE,
+    MD_ALIGN_LEFT,
+    MD_ALIGN_CENTER,
+    MD_ALIGN_RIGHT,
+} MdAlign;
+
 typedef struct MdNode
 {
     MdNodeKind kind;
@@ -68,8 +79,10 @@ typedef struct MdNode
     /* attributes by kind */
     int level; /* heading 1..6 */
     MdListType list_type;
-    int start;      /* ordered list start number */
-    gboolean tight; /* list: no blank lines between items */
+    int start;       /* ordered list start number */
+    gboolean tight;  /* list: no blank lines between items */
+    MdAlign align;   /* table cell: column alignment */
+    gboolean header; /* table row: true for the header row */
 } MdNode;
 
 /* ------------------------------------------------------------------ */

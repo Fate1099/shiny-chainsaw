@@ -11,6 +11,8 @@ renderers — the parser lives in-repo and is implemented in pure C.
 - Parser unit-testable headlessly
 - Inline image rendering (remote via libsoup3, local files, relative paths)
 - HTML comment stripping
+- GFM tables with alignment, rendered as an aligned monospace block
+- Nested lists indented by depth
 
 ## Requirements
 

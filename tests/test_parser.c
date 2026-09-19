@@ -70,10 +70,34 @@ static const Case CASES[] = {
     {"inline html comment", "a <!-- x --> b", "<p>a  b</p>\n"},
 };
 
-static void run_case(const Case* c)
+/* GFM tables (run with MD_FEATURE_GFM_TABLES enabled). */
+static const Case TABLE_CASES[] = {
+    {"table basic", "| Term | Match |\n|------|-------|\n| a | b |",
+     "<table>\n<thead>\n<tr>\n<th>Term</th>\n<th>Match</th>\n</tr>\n</"
+     "thead>\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n"},
+    {"table alignment", "| a | b | c | d |\n|:---|:---:|---:|---|\n| 1 | 2 | 3 | 4 |",
+     "<table>\n<thead>\n<tr>\n<th align=\"left\">a</th>\n<th align=\"center\">b</th>\n<th "
+     "align=\"right\">c</th>\n<th>d</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td "
+     "align=\"left\">1</td>\n<td align=\"center\">2</td>\n<td "
+     "align=\"right\">3</td>\n<td>4</td>\n</tr>\n</tbody>\n</table>\n"},
+    {"table no outer pipes", "a | b\n- | -\n1 | 2",
+     "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</"
+     "td>\n<td>2</td>\n</tr>\n</tbody>\n</table>\n"},
+    {"table bold cell", "| h |\n|---|\n| **b** |",
+     "<table>\n<thead>\n<tr>\n<th>h</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><strong>b</strong></"
+     "td>\n</tr>\n</tbody>\n</table>\n"},
+    {"table header only", "| a | b |\n|---|---|",
+     "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n</table>\n"},
+    {"table empty body cell", "| a | b |\n|---|---|\n| 1 |  |",
+     "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</"
+     "td>\n<td></td>\n</tr>\n</tbody>\n</table>\n"},
+    {"delimiter mismatch is not a table", "| a | b |\n|---|\nx", "<p>| a | b | |---| x</p>\n"},
+};
+
+static void run_case(const Case* c, const MdOptions* options)
 {
     GError* error = NULL;
-    gchar* html = md_parser_parse(c->input, NULL, &error);
+    gchar* html = md_parser_parse(c->input, options, &error);
     assert(error == NULL);
     assert(html != NULL);
     if (strcmp(html, c->expected) != 0)
@@ -88,7 +112,14 @@ static void run_case(const Case* c)
 int main(void)
 {
     for (guint i = 0; i < G_N_ELEMENTS(CASES); i++)
-        run_case(&CASES[i]);
-    printf("test_parser: %u cases passed\n", (guint)G_N_ELEMENTS(CASES));
+        run_case(&CASES[i], NULL);
+
+    MdOptions opts = md_options_default();
+    md_options_set(&opts, MD_FEATURE_GFM_TABLES, TRUE);
+    for (guint i = 0; i < G_N_ELEMENTS(TABLE_CASES); i++)
+        run_case(&TABLE_CASES[i], &opts);
+
+    printf("test_parser: %u cases passed\n",
+           (guint)(G_N_ELEMENTS(CASES) + G_N_ELEMENTS(TABLE_CASES)));
     return 0;
 }

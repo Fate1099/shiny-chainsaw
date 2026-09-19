@@ -581,7 +581,9 @@ static guint md_image_max_width(void)
 static void render_markdown(MdApp* app, const gchar* markdown)
 {
     GError* error = NULL;
-    MdNode* doc = md_parse(markdown, NULL, &error);
+    MdOptions opts = md_options_default();
+    md_options_set(&opts, MD_FEATURE_GFM_TABLES, TRUE);
+    MdNode* doc = md_parse(markdown, &opts, &error);
     if (doc == NULL)
     {
         g_printerr("md-viewer: parse error: %s\n", error != NULL ? error->message : "unknown");

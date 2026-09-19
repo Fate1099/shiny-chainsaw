@@ -2,6 +2,8 @@
 
 #include <libsoup/soup.h>
 
+#include <string.h>
+
 typedef struct
 {
     GtkTextBuffer* buffer;
@@ -17,8 +19,13 @@ typedef struct
     GtkTextTag* link;
     GtkTextTag* blockquote;
     GtkTextTag* item;
+    GtkTextTag* table;
     gboolean tight;
+    gint list_depth; /* nesting depth of the list being rendered */
 } RenderCtx;
+
+/* Spaces added per list nesting level (top level = 0). */
+#define MD_LIST_INDENT 4
 
 /* ------------------------------------------------------------------ */
 /* Tag setup                                                           */
@@ -76,6 +83,11 @@ static void create_tags(RenderCtx* ctx)
     ctx->codeblock = get_tag(b, "md-codeblock");
     if (ctx->codeblock == NULL)
         ctx->codeblock = gtk_text_buffer_create_tag(b, "md-codeblock", "family", "monospace", NULL);
+
+    ctx->table = get_tag(b, "md-table");
+    if (ctx->table == NULL)
+        ctx->table = gtk_text_buffer_create_tag(b, "md-table", "family", "monospace", "background",
+                                                "#f6f8fa", NULL);
 }
 
 /* ------------------------------------------------------------------ */
@@ -104,6 +116,7 @@ static void apply_tag_from(RenderCtx* ctx, GtkTextTag* tag, gint start_offset)
 
 static void render_block(const MdNode* node, RenderCtx* ctx);
 static void render_inline_children(const MdNode* node, RenderCtx* ctx);
+static void render_table(const MdNode* node, RenderCtx* ctx);
 
 /* Render inline children, then apply `tag` across the whole range. */
 static void render_inline_tagged(const MdNode* node, GtkTextTag* tag, RenderCtx* ctx)
@@ -413,7 +426,10 @@ static void render_list_item(const MdNode* item, const char* marker, RenderCtx* 
 {
     gboolean prev_tight = ctx->tight;
 
+    gchar* pad = g_strnfill((gsize)(ctx->list_depth * MD_LIST_INDENT), ' ');
     gint start = gtk_text_buffer_get_char_count(ctx->buffer);
+    insert_text(ctx, pad, NULL);
+    g_free(pad);
     insert_text(ctx, marker, NULL);
 
     /* A single tight paragraph renders inline; otherwise render blocks. */
@@ -435,10 +451,114 @@ static void render_list_item(const MdNode* item, const char* marker, RenderCtx* 
     apply_tag_from(ctx, ctx->item, start);
 }
 
+/* GFM tables are drawn as an aligned monospace block with pipes, dashes,
+ * and per-column alignment padding. Cells keep their inline tags (bold,
+ * links, code) because the block-wide table tag only sets family/background. */
+static gint table_cell_width(const MdNode* cell)
+{
+    gint w = 0;
+    for (guint i = 0; i < cell->children->len; i++)
+    {
+        const MdNode* c = g_ptr_array_index(cell->children, i);
+        if (c->kind == MD_NODE_TEXT)
+            w += (gint)strlen(c->literal);
+    }
+    return w;
+}
+
+static void render_table(const MdNode* node, RenderCtx* ctx)
+{
+    gint start = gtk_text_buffer_get_char_count(ctx->buffer);
+
+    gint ncols = 0;
+    if (node->children->len > 0)
+        ncols = (gint)((const MdNode*)g_ptr_array_index(node->children, 0))->children->len;
+    if (ncols <= 0)
+        return;
+
+    gint* widths = g_new0(gint, (gsize)ncols);
+    for (guint r = 0; r < node->children->len; r++)
+    {
+        const MdNode* row = g_ptr_array_index(node->children, r);
+        for (gint c = 0; c < ncols && (guint)c < row->children->len; c++)
+        {
+            gint w = table_cell_width(g_ptr_array_index(row->children, c)) + 2;
+            if (w > widths[c])
+                widths[c] = w;
+        }
+    }
+
+    for (guint r = 0; r < node->children->len; r++)
+    {
+        const MdNode* row = g_ptr_array_index(node->children, r);
+        insert_text(ctx, "|", NULL);
+        for (gint c = 0; c < ncols; c++)
+        {
+            gchar* pad;
+            if ((guint)c < row->children->len)
+            {
+                const MdNode* cell = g_ptr_array_index(row->children, c);
+                gint avail = widths[c] - table_cell_width(cell);
+                gint left = 1, right = avail - 1;
+                if (cell->align == MD_ALIGN_CENTER)
+                {
+                    left = avail / 2;
+                    right = avail - left;
+                }
+                else if (cell->align == MD_ALIGN_RIGHT)
+                {
+                    left = avail;
+                    right = 0;
+                }
+                if (left > 0)
+                {
+                    pad = g_strnfill((gsize)left, ' ');
+                    insert_text(ctx, pad, NULL);
+                    g_free(pad);
+                }
+                render_inline_children(cell, ctx);
+                if (right > 0)
+                {
+                    pad = g_strnfill((gsize)right, ' ');
+                    insert_text(ctx, pad, NULL);
+                    g_free(pad);
+                }
+            }
+            else
+            {
+                pad = g_strnfill((gsize)widths[c], ' ');
+                insert_text(ctx, pad, NULL);
+                g_free(pad);
+            }
+            insert_text(ctx, "|", NULL);
+        }
+        insert_text(ctx, "\n", NULL);
+
+        if (r == 0)
+        {
+            insert_text(ctx, "|", NULL);
+            for (gint c = 0; c < ncols; c++)
+            {
+                gchar* dash = g_strnfill((gsize)widths[c], '-');
+                insert_text(ctx, dash, NULL);
+                g_free(dash);
+                insert_text(ctx, "|", NULL);
+            }
+            insert_text(ctx, "\n", NULL);
+        }
+    }
+
+    apply_tag_from(ctx, ctx->table, start);
+    g_free(widths);
+}
+
 static void render_list(const MdNode* node, RenderCtx* ctx)
 {
     gboolean prev_tight = ctx->tight;
+    gint prev_depth = ctx->list_depth;
     ctx->tight = node->tight;
+    ctx->list_depth++;
+
     gboolean ordered = node->list_type == MD_LIST_ORDERED;
 
     for (guint i = 0; i < node->children->len; i++)
@@ -455,6 +575,7 @@ static void render_list(const MdNode* node, RenderCtx* ctx)
     if (node->tight)
         insert_text(ctx, "\n", NULL); /* complete the blank line after a tight list */
     ctx->tight = prev_tight;
+    ctx->list_depth = prev_depth;
 }
 
 static void render_block(const MdNode* node, RenderCtx* ctx)
@@ -482,6 +603,11 @@ static void render_block(const MdNode* node, RenderCtx* ctx)
 
     case MD_NODE_LIST:
         render_list(node, ctx);
+        break;
+
+    case MD_NODE_TABLE:
+        render_table(node, ctx);
+        insert_text(ctx, "\n", NULL);
         break;
 
     case MD_NODE_CODE_BLOCK:

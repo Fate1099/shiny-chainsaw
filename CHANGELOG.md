@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GFM tables (behind `MD_FEATURE_GFM_TABLES`): header/delimiter rows with
+  left/center/right alignment, inline formatting in cells, and rows with
+  missing cells padded. Rendered as an aligned monospace block with pipes and
+  dashes.
+- Nested list items are indented by depth in the rendered view.
 - Inline image rendering: images are embedded in the document and loaded
   asynchronously (remote via libsoup3, local files, and paths relative to the
   opened document). The alt text is shown as a caption under the image; a

@@ -465,9 +465,11 @@ static void parse_inline(GPtrArray* out, const char* s)
 /* Block parser                                                        */
 /* ------------------------------------------------------------------ */
 
-static void parse_blocks(MdNode* container, char** lines, size_t n, size_t indent);
+static void parse_blocks(MdNode* container, char** lines, size_t n, size_t indent,
+                         const MdOptions* options);
 
-static void parse_blockquote(MdNode* container, char** lines, size_t start, size_t end)
+static void parse_blockquote(MdNode* container, char** lines, size_t start, size_t end,
+                             const MdOptions* options)
 {
     GPtrArray* stripped = g_ptr_array_new_with_free_func(g_free);
     for (size_t i = start; i < end; i++)
@@ -486,13 +488,13 @@ static void parse_blockquote(MdNode* container, char** lines, size_t start, size
 
     MdNode* node = node_new(MD_NODE_BLOCKQUOTE);
     node->children = g_ptr_array_new();
-    parse_blocks(node, (char**)stripped->pdata, stripped->len, 0);
+    parse_blocks(node, (char**)stripped->pdata, stripped->len, 0, options);
     g_ptr_array_free(stripped, TRUE);
     add_child(container, node);
 }
 
 static void parse_list(MdNode* container, char** lines, size_t start, size_t end,
-                       MdListType list_type, int start_num)
+                       MdListType list_type, int start_num, const MdOptions* options)
 {
     MdNode* list = node_new(MD_NODE_LIST);
     list->list_type = list_type;
@@ -518,7 +520,7 @@ static void parse_list(MdNode* container, char** lines, size_t start, size_t end
         {
             if (item != NULL)
             {
-                parse_blocks(item, (char**)item_lines->pdata, item_lines->len, 0);
+                parse_blocks(item, (char**)item_lines->pdata, item_lines->len, 0, options);
                 g_ptr_array_free(item_lines, TRUE);
             }
             item = node_new(MD_NODE_ITEM);
@@ -540,14 +542,113 @@ static void parse_list(MdNode* container, char** lines, size_t start, size_t end
 
     if (item != NULL)
     {
-        parse_blocks(item, (char**)item_lines->pdata, item_lines->len, 0);
+        parse_blocks(item, (char**)item_lines->pdata, item_lines->len, 0, options);
         g_ptr_array_free(item_lines, TRUE);
     }
 
     add_child(container, list);
 }
 
-static void parse_blocks(MdNode* container, char** lines, size_t n, size_t indent)
+/* ------------------------------------------------------------------ */
+/* GFM tables                                                          */
+/* ------------------------------------------------------------------ */
+
+/* Split a table row into trimmed cells. Returns FALSE when the line has
+ * no cells after stripping optional outer pipes. */
+static gboolean parse_table_cells(const char* s, GPtrArray* cells)
+{
+    gchar* line = g_strdup(s);
+    g_strstrip(line);
+    gsize len = strlen(line);
+    if (len == 0)
+    {
+        g_free(line);
+        return FALSE;
+    }
+    if (line[0] == '|')
+    {
+        memmove(line, line + 1, len);
+        len--;
+    }
+    if (len > 0 && line[len - 1] == '|')
+        line[--len] = '\0';
+    g_strstrip(line);
+    if (strlen(line) == 0)
+    {
+        g_free(line);
+        return FALSE;
+    }
+
+    gchar** parts = g_strsplit(line, "|", -1);
+    for (guint i = 0; parts[i] != NULL; i++)
+    {
+        gchar* cell = parts[i];
+        g_strstrip(cell);
+        g_ptr_array_add(cells, g_strdup(cell));
+    }
+    g_strfreev(parts);
+    g_free(line);
+    return cells->len > 0;
+}
+
+/* Parse a GFM delimiter row (e.g. "| :--- | :---: |") into `aligns` (at
+ * most max_cols entries). Returns the column count, or 0 when the line is
+ * not a valid delimiter row. */
+static gsize parse_delimiter_row(const char* s, MdAlign* aligns, gsize max_cols)
+{
+    if (strchr(s, '|') == NULL)
+        return 0; /* a delimiter row must be pipe-delimited, not "---" */
+
+    GPtrArray* cells = g_ptr_array_new_with_free_func(g_free);
+    gsize n = parse_table_cells(s, cells) ? cells->len : 0;
+    if (n == 0 || n > max_cols)
+    {
+        g_ptr_array_free(cells, TRUE);
+        return 0;
+    }
+    for (gsize i = 0; i < n; i++)
+    {
+        const char* c = g_ptr_array_index(cells, i);
+        gsize clen = strlen(c);
+        if (clen == 0)
+        {
+            g_ptr_array_free(cells, TRUE);
+            return 0;
+        }
+        gboolean left = (c[0] == ':');
+        gboolean right = (c[clen - 1] == ':');
+        for (gsize k = (left ? 1 : 0); k < clen - (right ? 1 : 0); k++)
+        {
+            if (c[k] != '-')
+            {
+                g_ptr_array_free(cells, TRUE);
+                return 0;
+            }
+        }
+        if (clen - (left ? 1 : 0) - (right ? 1 : 0) == 0)
+        {
+            g_ptr_array_free(cells, TRUE);
+            return 0;
+        }
+        aligns[i] = (left && right)
+                        ? MD_ALIGN_CENTER
+                        : (left ? MD_ALIGN_LEFT : (right ? MD_ALIGN_RIGHT : MD_ALIGN_NONE));
+    }
+    g_ptr_array_free(cells, TRUE);
+    return n;
+}
+
+static void add_table_cell(MdNode* row, const char* text, MdAlign align)
+{
+    MdNode* cell = node_new(MD_NODE_TABLE_CELL);
+    cell->align = align;
+    cell->children = g_ptr_array_new();
+    parse_inline(cell->children, text);
+    add_child(row, cell);
+}
+
+static void parse_blocks(MdNode* container, char** lines, size_t n, size_t indent,
+                         const MdOptions* options)
 {
     size_t i = 0;
     while (i < n)
@@ -681,8 +782,63 @@ static void parse_blocks(MdNode* container, char** lines, size_t n, size_t inden
                     break;
                 }
             }
-            parse_blockquote(container, lines, bq_start, i);
+            parse_blockquote(container, lines, bq_start, i, options);
             continue;
+        }
+
+        /* GFM table (feature-gated): header row followed by a delimiter row */
+        if (options != NULL && md_options_has(options, MD_FEATURE_GFM_TABLES) && i + 1 < n &&
+            strchr(content, '|') != NULL)
+        {
+            GPtrArray* header_cells = g_ptr_array_new_with_free_func(g_free);
+            MdAlign aligns[16];
+            gsize header_cols = parse_table_cells(content, header_cells) ? header_cells->len : 0;
+            gsize delim_cols = 0;
+            if (header_cols > 0 && header_cols <= G_N_ELEMENTS(aligns))
+            {
+                const char* nl = lines[i + 1] + leading_spaces(lines[i + 1]);
+                delim_cols = parse_delimiter_row(nl, aligns, header_cols);
+            }
+            if (header_cols == delim_cols)
+            {
+                MdNode* table = node_new(MD_NODE_TABLE);
+                table->children = g_ptr_array_new();
+                i += 2;
+
+                MdNode* header_row = node_new(MD_NODE_TABLE_ROW);
+                header_row->header = TRUE;
+                header_row->children = g_ptr_array_new();
+                for (gsize c = 0; c < header_cols; c++)
+                    add_table_cell(header_row, g_ptr_array_index(header_cells, c), aligns[c]);
+                add_child(table, header_row);
+
+                while (i < n)
+                {
+                    const char* bl = lines[i] + leading_spaces(lines[i]);
+                    GPtrArray* cells = g_ptr_array_new_with_free_func(g_free);
+                    if (strchr(bl, '|') == NULL || !parse_table_cells(bl, cells))
+                    {
+                        g_ptr_array_free(cells, TRUE);
+                        break;
+                    }
+                    MdNode* row = node_new(MD_NODE_TABLE_ROW);
+                    row->children = g_ptr_array_new();
+                    for (gsize c = 0; c < header_cols; c++)
+                    {
+                        const gchar* cell_text =
+                            (c < cells->len) ? g_ptr_array_index(cells, c) : "";
+                        add_table_cell(row, cell_text, aligns[c]);
+                    }
+                    g_ptr_array_free(cells, TRUE);
+                    add_child(table, row);
+                    i++;
+                }
+
+                add_child(container, table);
+                g_ptr_array_free(header_cells, TRUE);
+                continue;
+            }
+            g_ptr_array_free(header_cells, TRUE);
         }
 
         /* list */
@@ -728,7 +884,7 @@ static void parse_blocks(MdNode* container, char** lines, size_t n, size_t inden
                     break;
                 }
             }
-            parse_list(container, lines, list_start, i, ltype, lnum);
+            parse_list(container, lines, list_start, i, ltype, lnum, options);
             continue;
         }
 
@@ -834,6 +990,49 @@ static void render_html(const MdNode* node, GString* out)
         g_string_append(out, "<hr />\n");
         break;
 
+    case MD_NODE_TABLE:
+    {
+        gboolean first_body = TRUE;
+        g_string_append(out, "<table>\n");
+        g_string_append(out, "<thead>\n");
+        for (guint i = 0; i < node->children->len; i++)
+        {
+            const MdNode* row = g_ptr_array_index(node->children, i);
+            if (!row->header && first_body)
+            {
+                g_string_append(out, "</thead>\n<tbody>\n");
+                first_body = FALSE;
+            }
+            render_html(row, out);
+        }
+        g_string_append(out, first_body ? "</thead>\n" : "</tbody>\n");
+        g_string_append(out, "</table>\n");
+        break;
+    }
+
+    case MD_NODE_TABLE_ROW:
+        g_string_append(out, "<tr>\n");
+        for (guint i = 0; i < node->children->len; i++)
+        {
+            const MdNode* cell = g_ptr_array_index(node->children, i);
+            const char* tag = node->header ? "th" : "td";
+            if (cell->align != MD_ALIGN_NONE)
+            {
+                const char* a = cell->align == MD_ALIGN_LEFT
+                                    ? "left"
+                                    : (cell->align == MD_ALIGN_CENTER ? "center" : "right");
+                g_string_append_printf(out, "<%s align=\"%s\">", tag, a);
+            }
+            else
+            {
+                g_string_append_printf(out, "<%s>", tag);
+            }
+            render_inline_children(cell, out);
+            g_string_append_printf(out, "</%s>\n", tag);
+        }
+        g_string_append(out, "</tr>\n");
+        break;
+
     default:
         break;
     }
@@ -911,7 +1110,6 @@ static void render_inline_children(const MdNode* node, GString* out)
 
 MdNode* md_parse(const gchar* markdown, const MdOptions* options, GError** error)
 {
-    (void)options;
     (void)error;
     g_return_val_if_fail(markdown != NULL, NULL);
 
@@ -926,7 +1124,7 @@ MdNode* md_parse(const gchar* markdown, const MdOptions* options, GError** error
         if (l > 0 && lines[i][l - 1] == '\r')
             lines[i][l - 1] = '\0'; /* strip CR from CRLF line endings */
     }
-    parse_blocks(doc, lines, n, 0);
+    parse_blocks(doc, lines, n, 0, options);
     g_strfreev(lines);
 
     return doc;
