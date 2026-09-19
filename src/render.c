@@ -133,6 +133,7 @@ static void render_inline_tagged(const MdNode* node, GtkTextTag* tag, RenderCtx*
 typedef struct
 {
     GtkImage* image;      /* owned ref until the load settles */
+    GtkWidget* widget;    /* owned ref: the child anchored in the view */
     GtkTextView* view;    /* borrowed */
     SoupSession* session; /* borrowed */
     GCancellable* cancel; /* owned ref */
@@ -169,6 +170,7 @@ static void cancel_pending_loads(GtkTextView* view)
 static void md_image_load_free(MdImageLoad* data)
 {
     g_object_unref(data->image);
+    g_object_unref(data->widget);
     g_object_unref(data->cancel);
     g_free(data->src);
     g_free(data);
@@ -212,8 +214,10 @@ static GdkPixbuf* scale_to_fit(MdImageLoad* data, GdkPixbuf* pixbuf)
         gint avail = gtk_widget_get_allocated_width(GTK_WIDGET(data->view)) - 80;
         if (avail > 0)
             maxw = (guint)avail;
+        else
+            maxw = 800; /* view not laid out yet; avoid embedding a giant image */
     }
-    if (maxw == 0 || w <= (gint)maxw)
+    if (w <= (gint)maxw)
         return NULL;
     gint nw = (gint)maxw;
     return gdk_pixbuf_scale_simple(pixbuf, nw, (h * nw) / w, GDK_INTERP_BILINEAR);
@@ -244,6 +248,11 @@ static void image_finished(MdImageLoad* data, GBytes* bytes)
     {
         gtk_image_set_from_icon_name(data->image, "image-missing", GTK_ICON_SIZE_DIALOG);
     }
+
+    /* The anchor widget's size changed since it was inserted; queueing a
+     * resize on the anchor child (not the view) forces the text view to
+     * recompute its layout so subsequent lines/images don't overlap. */
+    gtk_widget_queue_resize(data->widget);
 
     md_image_load_free(data);
 }
@@ -400,6 +409,7 @@ static void render_inline_children(const MdNode* node, RenderCtx* ctx)
 
             MdImageLoad* data = g_new0(MdImageLoad, 1);
             data->image = GTK_IMAGE(g_object_ref(image));
+            data->widget = g_object_ref(box);
             data->view = GTK_TEXT_VIEW(ctx->view);
             data->session = ctx->session;
             data->cancel = g_cancellable_new();
