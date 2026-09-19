@@ -48,8 +48,9 @@ static const Case CASES[] = {
     {"code span keeps single leading space", "` x`", "<p><code> x</code></p>\n"},
     {"link followed by paren is kept", "[a](b) (c)", "<p><a href=\"b\">a</a> (c)</p>\n"},
     {"nested unordered list", "- a\n  - b\n  - c",
-     "<ul>\n<li>a<ul>\n<li>b</li>\n<li>c</li>\n</ul>\n</li>\n</ul>\n"},
-    {"nested ordered list", "1. a\n   1. b", "<ol>\n<li>a<ol>\n<li>b</li>\n</ol>\n</li>\n</ol>\n"},
+     "<ul>\n<li>a\n<ul>\n<li>b</li>\n<li>c</li>\n</ul>\n</li>\n</ul>\n"},
+    {"nested ordered list", "1. a\n   1. b",
+     "<ol>\n<li>a\n<ol>\n<li>b</li>\n</ol>\n</li>\n</ol>\n"},
     {"list with continuation line", "- a\n  continued", "<ul>\n<li>a continued</li>\n</ul>\n"},
     {"ordered list custom start", "3. c\n4. d",
      "<ol start=\"3\">\n<li>c</li>\n<li>d</li>\n</ol>\n"},
@@ -94,6 +95,74 @@ static const Case TABLE_CASES[] = {
     {"delimiter mismatch is not a table", "| a | b |\n|---|\nx", "<p>| a | b | |---| x</p>\n"},
 };
 
+/* GFM strikethrough (MD_FEATURE_GFM_STRIKETHROUGH). */
+static const Case STRIKE_CASES[] = {
+    {"strikethrough double", "~~Hi~~", "<p><del>Hi</del></p>\n"},
+    {"strikethrough single", "~there~", "<p><del>there</del></p>\n"},
+    {"strikethrough inline in text", "~~Hi~~ Hello, ~there~ world!",
+     "<p><del>Hi</del> Hello, <del>there</del> world!</p>\n"},
+    {"strikethrough across paragraphs", "This ~~has a\n\nnew paragraph~~.",
+     "<p>This ~~has a</p>\n<p>new paragraph~~.</p>\n"},
+    {"strikethrough three tildes literal", "This will ~~~not~~~ strike.",
+     "<p>This will ~~~not~~~ strike.</p>\n"},
+    {"strikethrough unclosed literal", "~~open", "<p>~~open</p>\n"},
+    {"strikethrough nested emphasis", "~~*em*~~", "<p><del><em>em</em></del></p>\n"},
+};
+
+/* GFM task lists (MD_FEATURE_GFM_TASKLISTS). */
+static const Case TASKLIST_CASES[] = {
+    {"task list basic", "- [ ] foo\n- [x] bar",
+     "<ul>\n<li><input disabled=\"\" type=\"checkbox\"> foo</li>\n<li><input checked=\"\" "
+     "disabled=\"\" "
+     "type=\"checkbox\"> bar</li>\n</ul>\n"},
+    {"task list nested", "- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim",
+     "<ul>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> foo\n<ul>\n<li><input "
+     "disabled=\"\" "
+     "type=\"checkbox\"> bar</li>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> "
+     "baz</li>\n</ul>\n"
+     "</li>\n<li><input disabled=\"\" type=\"checkbox\"> bim</li>\n</ul>\n"},
+    {"task list uppercase X", "- [X] upper",
+     "<ul>\n<li><input checked=\"\" disabled=\"\" type=\"checkbox\"> upper</li>\n</ul>\n"},
+    {"task marker without space is literal", "- [x]foo", "<ul>\n<li>[x]foo</li>\n</ul>\n"},
+    {"task marker two spaces literal", "- [  ] x", "<ul>\n<li>[  ] x</li>\n</ul>\n"},
+};
+
+/* GFM autolinks (MD_FEATURE_GFM_AUTOLINKS). */
+static const Case AUTOLINK_CASES[] = {
+    {"autolink www", "www.commonmark.org",
+     "<p><a href=\"http://www.commonmark.org\">www.commonmark.org</a></p>\n"},
+    {"autolink www path", "Visit www.commonmark.org/help for more information.",
+     "<p>Visit <a href=\"http://www.commonmark.org/help\">www.commonmark.org/help</a> for more "
+     "information.</p>\n"},
+    {"autolink trailing punctuation", "Visit www.commonmark.org.\n\nVisit www.commonmark.org/a.b.",
+     "<p>Visit <a href=\"http://www.commonmark.org\">www.commonmark.org</a>.</p>\n<p>Visit <a "
+     "href=\"http://www.commonmark.org/a.b\">www.commonmark.org/a.b</a>.</p>\n"},
+    {"autolink balanced parens", "www.google.com/search?q=Markup+(business)",
+     "<p><a "
+     "href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+"
+     "(business)</a></p>\n"},
+    {"autolink unbalanced parens", "www.google.com/search?q=Markup+(business)))",
+     "<p><a "
+     "href=\"http://www.google.com/search?q=Markup+(business)\">www.google.com/search?q=Markup+"
+     "(business)</a>))</p>\n"},
+    {"autolink entity trailing", "www.google.com/search?q=commonmark&hl;",
+     "<p><a "
+     "href=\"http://www.google.com/search?q=commonmark\">www.google.com/search?q=commonmark</a>"
+     "&amp;hl;</p>\n"},
+    {"autolink less-than ends", "www.commonmark.org/he<lp",
+     "<p><a href=\"http://www.commonmark.org/he\">www.commonmark.org/he</a>&lt;lp</p>\n"},
+    {"autolink scheme", "http://commonmark.org",
+     "<p><a href=\"http://commonmark.org\">http://commonmark.org</a></p>\n"},
+    {"autolink email", "foo@bar.baz", "<p><a href=\"mailto:foo@bar.baz\">foo@bar.baz</a></p>\n"},
+    {"autolink protocol", "mailto:user@example.com",
+     "<p><a href=\"mailto:user@example.com\">mailto:user@example.com</a></p>\n"},
+    {"autolink after parenthesis",
+     "(Visit https://encrypted.google.com/search?q=Markup+(business))",
+     "<p>(Visit <a "
+     "href=\"https://encrypted.google.com/search?q=Markup+(business)\">https://encrypted."
+     "google.com/search?q=Markup+(business)</a>)</p>\n"},
+};
+
 static void run_case(const Case* c, const MdOptions* options)
 {
     GError* error = NULL;
@@ -119,7 +188,23 @@ int main(void)
     for (guint i = 0; i < G_N_ELEMENTS(TABLE_CASES); i++)
         run_case(&TABLE_CASES[i], &opts);
 
+    opts = md_options_default();
+    md_options_set(&opts, MD_FEATURE_GFM_STRIKETHROUGH, TRUE);
+    for (guint i = 0; i < G_N_ELEMENTS(STRIKE_CASES); i++)
+        run_case(&STRIKE_CASES[i], &opts);
+
+    opts = md_options_default();
+    md_options_set(&opts, MD_FEATURE_GFM_TASKLISTS, TRUE);
+    for (guint i = 0; i < G_N_ELEMENTS(TASKLIST_CASES); i++)
+        run_case(&TASKLIST_CASES[i], &opts);
+
+    opts = md_options_default();
+    md_options_set(&opts, MD_FEATURE_GFM_AUTOLINKS, TRUE);
+    for (guint i = 0; i < G_N_ELEMENTS(AUTOLINK_CASES); i++)
+        run_case(&AUTOLINK_CASES[i], &opts);
+
     printf("test_parser: %u cases passed\n",
-           (guint)(G_N_ELEMENTS(CASES) + G_N_ELEMENTS(TABLE_CASES)));
+           (guint)(G_N_ELEMENTS(CASES) + G_N_ELEMENTS(TABLE_CASES) + G_N_ELEMENTS(STRIKE_CASES) +
+                   G_N_ELEMENTS(TASKLIST_CASES) + G_N_ELEMENTS(AUTOLINK_CASES)));
     return 0;
 }

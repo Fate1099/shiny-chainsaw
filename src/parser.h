@@ -47,6 +47,7 @@ typedef enum
     MD_NODE_TEXT,
     MD_NODE_EMPHASIS,
     MD_NODE_STRONG,
+    MD_NODE_STRIKETHROUGH,
     MD_NODE_CODE_SPAN,
     MD_NODE_LINK,
     MD_NODE_IMAGE,
@@ -79,10 +80,12 @@ typedef struct MdNode
     /* attributes by kind */
     int level; /* heading 1..6 */
     MdListType list_type;
-    int start;       /* ordered list start number */
-    gboolean tight;  /* list: no blank lines between items */
-    MdAlign align;   /* table cell: column alignment */
-    gboolean header; /* table row: true for the header row */
+    int start;             /* ordered list start number */
+    gboolean tight;        /* list: no blank lines between items */
+    MdAlign align;         /* table cell: column alignment */
+    gboolean header;       /* table row: true for the header row */
+    gboolean task;         /* list item: GFM task list item */
+    gboolean task_checked; /* list item: task checkbox is checked */
 } MdNode;
 
 /* ------------------------------------------------------------------ */

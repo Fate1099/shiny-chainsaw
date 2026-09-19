@@ -21,6 +21,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- GFM strikethrough (`~x~` / `~~x~~`, behind `MD_FEATURE_GFM_STRIKETHROUGH`):
+  one or two tildes wrap `<del>…</del>`; three or more stay literal. Rendered
+  with a struck-through Pango tag.
+- GFM task lists (behind `MD_FEATURE_GFM_TASKLISTS`): `- [ ]` / `- [x]` /
+  `- [X]` items emit a semantic `<input type="checkbox">` (checked/disabled,
+  matching the GFM spec) in HTML and `☐`/`☑` glyphs in the GTK view.
+- GFM autolinks (behind `MD_FEATURE_GFM_AUTOLINKS`): bare `www.` and
+  `http(s)://` URLs, email addresses, and `mailto:`/`xmpp:` protocols, with
+  GFM's domain, trailing-punctuation, parenthesis-balancing, and entity rules.
+  Links in the GTK view reuse the existing link style.
+- Tight list items now separate their text from a following nested list with a
+  newline in the HTML output, matching cmark.
 - GFM tables (behind `MD_FEATURE_GFM_TABLES`): header/delimiter rows with
   left/center/right alignment, inline formatting in cells, and rows with
   missing cells padded. Rendered as an aligned monospace block with pipes and
@@ -83,7 +95,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Planned
 
-- GFM extensions (tables, task lists, strikethrough, autolinks)
 - Markdown Extra extensions (definition lists, footnotes, abbreviations)
 - CommonMark `spec.txt` conformance harness
 - Live reload on file change
+- Recent files

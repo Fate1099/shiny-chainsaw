@@ -163,6 +163,20 @@ static gboolean is_fence_close(const char* s, char fence_char, size_t fence_len)
     return s[len] == '\0';
 }
 
+/* GFM task marker: [ ] or [x]/[X] followed by whitespace or end of line. */
+static gboolean parse_task_marker(const char* s, gboolean* checked)
+{
+    if (s[0] != '[' || s[2] != ']')
+        return FALSE;
+    if (s[1] == ' ')
+        *checked = FALSE;
+    else if (s[1] == 'x' || s[1] == 'X')
+        *checked = TRUE;
+    else
+        return FALSE;
+    return s[3] == ' ' || s[3] == '\t' || s[3] == '\0';
+}
+
 /* List marker: "- ", "* ", "+ ", "1. ", "1) ". Returns marker width. */
 static gboolean parse_list_marker(const char* s, size_t* width, MdListType* type, int* start)
 {
@@ -195,7 +209,7 @@ static gboolean parse_list_marker(const char* s, size_t* width, MdListType* type
 /* Inline parser                                                       */
 /* ------------------------------------------------------------------ */
 
-static void parse_inline(GPtrArray* out, const char* s);
+static void parse_inline(GPtrArray* out, const char* s, const MdOptions* options);
 
 static void add_text_node(GPtrArray* out, const char* start, size_t len)
 {
@@ -254,7 +268,230 @@ static gboolean parse_link_target(const char* s, char** url, char** title, const
     return TRUE;
 }
 
-static void parse_inline(GPtrArray* out, const char* s)
+/* ------------------------------------------------------------------ */
+/* GFM autolinks                                                       */
+/* ------------------------------------------------------------------ */
+
+static gboolean autolink_domain_char(guchar c)
+{
+    return g_ascii_isalnum(c) || c == '_' || c == '-';
+}
+
+static gboolean autolink_email_domain_char(guchar c)
+{
+    return g_ascii_isalnum(c) || c == '-' || c == '_';
+}
+
+/* Match a domain: segments of domain chars separated by '.', at least one
+ * period, and no underscore in the last two segments. On success sets *end
+ * one past the domain. */
+static gboolean match_autolink_domain(const char* s, const char** end)
+{
+    const char* p = s;
+    while (autolink_domain_char((guchar)*p))
+        p++;
+    if (p == s)
+        return FALSE;
+    const char* domain_end = p;
+
+    const char* segs[3] = {s, NULL, NULL};
+    int nseg = 1;
+    int dots = 0;
+    while (*p == '.')
+    {
+        const char* ns = p + 1;
+        const char* seg = ns;
+        while (autolink_domain_char((guchar)*ns))
+            ns++;
+        if (ns == seg)
+            break; /* '.' not followed by a segment: trailing dot */
+        dots++;
+        segs[nseg % 3] = seg;
+        nseg++;
+        domain_end = ns;
+        p = ns;
+    }
+    if (dots == 0)
+        return FALSE;
+
+    /* No underscore in the last two segments. */
+    const char* last = segs[(nseg - 1) % 3];
+    const char* prev = segs[(nseg - 2) % 3];
+    for (const char* q = last; q < domain_end; q++)
+    {
+        if (*q == '_')
+            return FALSE;
+    }
+    for (const char* q = prev; q < last - 1; q++)
+    {
+        if (*q == '_')
+            return FALSE;
+    }
+
+    *end = domain_end;
+    return TRUE;
+}
+
+/* Consume the path (non-whitespace, non-<) and apply GFM's extended path
+ * validation: strip trailing punctuation, balance parens, drop a trailing
+ * entity-looking ";". On success sets *end and returns TRUE. */
+static gboolean match_autolink_path(const char* s, const char** end)
+{
+    const char* p = s;
+    while (*p != '\0' && *p != ' ' && *p != '\t' && *p != '\n' && *p != '<')
+        p++;
+
+    while (p > s && strchr("?!.,:*_~", p[-1]) != NULL)
+        p--;
+
+    if (p > s && p[-1] == ')')
+    {
+        int open = 0, close = 0;
+        for (const char* q = s; q < p; q++)
+        {
+            if (*q == '(')
+                open++;
+            else if (*q == ')')
+                close++;
+        }
+        while (close > open && p > s && p[-1] == ')')
+        {
+            p--;
+            close--;
+        }
+    }
+
+    if (p > s && p[-1] == ';')
+    {
+        const char* q = p - 1;
+        while (q > s && g_ascii_isalnum(q[-1]))
+            q--;
+        if (q > s && q[-1] == '&')
+            p = q - 1; /* exclude an entity-like &name; */
+    }
+
+    /* The path may be empty (e.g. "www.x.com." with the trailing period
+     * stripped), in which case the autolink is just the domain. */
+    *end = p;
+    return TRUE;
+}
+
+/* Email domain: segments of email-domain chars separated by '.', at least
+ * one period, last character not '-' or '_'; a trailing '.' is not part of
+ * the address. */
+static gboolean match_email_domain(const char* s, const char** end)
+{
+    const char* p = s;
+    while (autolink_email_domain_char((guchar)*p))
+        p++;
+    if (p == s)
+        return FALSE;
+
+    int dots = 0;
+    while (*p == '.')
+    {
+        const char* ns = p + 1;
+        const char* seg = ns;
+        while (autolink_email_domain_char((guchar)*ns))
+            ns++;
+        if (ns == seg)
+            break;
+        dots++;
+        p = ns;
+    }
+    if (dots == 0)
+        return FALSE;
+
+    if (p > s && p[-1] == '.')
+        p--; /* trailing period is not part of the address */
+    if (p > s && (p[-1] == '-' || p[-1] == '_'))
+        return FALSE;
+    if (p <= s)
+        return FALSE;
+
+    *end = p;
+    return TRUE;
+}
+
+/* Attempt a GFM autolink at s. On success returns one past the matched text
+ * and sets *href to the link destination (owned). */
+static const char* try_autolink(const char* s, gchar** href)
+{
+    *href = NULL;
+
+    /* extended www autolink */
+    if (strncmp(s, "www.", 4) == 0)
+    {
+        const char* dom_end = NULL;
+        if (match_autolink_domain(s + 4, &dom_end) && match_autolink_path(dom_end, &dom_end))
+        {
+            *href = g_strdup_printf("http://%.*s", (int)(dom_end - s), s);
+            return dom_end;
+        }
+        return NULL;
+    }
+
+    /* extended url autolink: http:// or https:// + domain */
+    if (strncmp(s, "http://", 7) == 0 || strncmp(s, "https://", 8) == 0)
+    {
+        const char* dom_start = s + (s[4] == ':' ? 7 : 8);
+        const char* dom_end = NULL;
+        if (match_autolink_domain(dom_start, &dom_end) && match_autolink_path(dom_end, &dom_end))
+        {
+            *href = g_strndup(s, (size_t)(dom_end - s));
+            return dom_end;
+        }
+        return NULL;
+    }
+
+    /* extended protocol autolink: mailto: or xmpp: + email */
+    if (strncmp(s, "mailto:", 7) == 0 || strncmp(s, "xmpp:", 5) == 0)
+    {
+        const char* t = s + (s[0] == 'm' ? 7 : 5);
+        const char* at = strchr(t, '@');
+        if (at != NULL)
+        {
+            const char* dom_end = NULL;
+            if (match_email_domain(at + 1, &dom_end))
+            {
+                *href = g_strndup(s, (size_t)(dom_end - s));
+                return dom_end;
+            }
+        }
+        return NULL;
+    }
+
+    /* extended email autolink */
+    {
+        const char* at = strchr(s, '@');
+        if (at != NULL && at > s)
+        {
+            gboolean local_ok = TRUE;
+            for (const char* q = s; q < at; q++)
+            {
+                if (!(g_ascii_isalnum((guchar)*q) || *q == '.' || *q == '-' || *q == '_' ||
+                      *q == '+'))
+                {
+                    local_ok = FALSE;
+                    break;
+                }
+            }
+            if (local_ok)
+            {
+                const char* dom_end = NULL;
+                if (match_email_domain(at + 1, &dom_end))
+                {
+                    *href = g_strdup_printf("mailto:%.*s", (int)(dom_end - s), s);
+                    return dom_end;
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
+static void parse_inline(GPtrArray* out, const char* s, const MdOptions* options)
 {
     const char* p = s;
     const char* text_start = s;
@@ -368,7 +605,7 @@ static void parse_inline(GPtrArray* out, const char* s)
                     MdNode* em = node_new(MD_NODE_EMPHASIS);
                     em->children = g_ptr_array_new();
                     gchar* inner = g_strndup(p + 3, (size_t)(close - (p + 3)));
-                    parse_inline(em->children, inner);
+                    parse_inline(em->children, inner, options);
                     g_free(inner);
                     g_ptr_array_add(strong->children, em);
                     g_ptr_array_add(out, strong);
@@ -387,7 +624,7 @@ static void parse_inline(GPtrArray* out, const char* s)
                     MdNode* node = node_new(MD_NODE_STRONG);
                     node->children = g_ptr_array_new();
                     gchar* inner = g_strndup(p + 2, (size_t)(close - (p + 2)));
-                    parse_inline(node->children, inner);
+                    parse_inline(node->children, inner, options);
                     g_free(inner);
                     g_ptr_array_add(out, node);
                     p = close + 2;
@@ -405,10 +642,55 @@ static void parse_inline(GPtrArray* out, const char* s)
                     MdNode* node = node_new(MD_NODE_EMPHASIS);
                     node->children = g_ptr_array_new();
                     gchar* inner = g_strndup(p + 1, (size_t)(close - (p + 1)));
-                    parse_inline(node->children, inner);
+                    parse_inline(node->children, inner, options);
                     g_free(inner);
                     g_ptr_array_add(out, node);
                     p = close + 1;
+                    text_start = p;
+                    continue;
+                }
+            }
+        }
+
+        /* strikethrough: a matching pair of one or two tildes (GFM) */
+        if (c == '~' && options != NULL && md_options_has(options, MD_FEATURE_GFM_STRIKETHROUGH))
+        {
+            size_t run_len = 0;
+            while (p[run_len] == '~')
+                run_len++;
+            if (run_len <= 2)
+            {
+                const char* close = p + run_len;
+                const char* match = NULL;
+                while (*close != '\0')
+                {
+                    if (*close == '~')
+                    {
+                        const char* r = close;
+                        while (*r == '~')
+                            r++;
+                        if ((size_t)(r - close) == run_len)
+                        {
+                            match = close;
+                            break;
+                        }
+                        close = r;
+                    }
+                    else
+                    {
+                        close++;
+                    }
+                }
+                if (match != NULL)
+                {
+                    add_text_node(out, text_start, (size_t)(p - text_start));
+                    MdNode* node = node_new(MD_NODE_STRIKETHROUGH);
+                    node->children = g_ptr_array_new();
+                    gchar* inner = g_strndup(p + run_len, (size_t)(match - (p + run_len)));
+                    parse_inline(node->children, inner, options);
+                    g_free(inner);
+                    g_ptr_array_add(out, node);
+                    p = match + run_len;
                     text_start = p;
                     continue;
                 }
@@ -434,10 +716,37 @@ static void parse_inline(GPtrArray* out, const char* s)
                     node->title = title;
                     node->children = g_ptr_array_new();
                     gchar* label = g_strndup(label_start, (size_t)(close_bracket - label_start));
-                    parse_inline(node->children, label);
+                    parse_inline(node->children, label, options);
                     g_free(label);
                     g_ptr_array_add(out, node);
                     p = target_end;
+                    text_start = p;
+                    continue;
+                }
+            }
+        }
+
+        /* GFM autolink: only at line start, after whitespace, or after the
+         * delimiter characters *, _, ~, and (. */
+        if (options != NULL && md_options_has(options, MD_FEATURE_GFM_AUTOLINKS))
+        {
+            gboolean ctx_ok = (p == s) || p[-1] == ' ' || p[-1] == '\t' || p[-1] == '\n' ||
+                              p[-1] == '*' || p[-1] == '_' || p[-1] == '~' || p[-1] == '(';
+            if (ctx_ok)
+            {
+                gchar* href = NULL;
+                const char* end = try_autolink(p, &href);
+                if (end != NULL)
+                {
+                    add_text_node(out, text_start, (size_t)(p - text_start));
+                    MdNode* node = node_new(MD_NODE_LINK);
+                    node->literal = href;
+                    node->children = g_ptr_array_new();
+                    MdNode* text = node_new(MD_NODE_TEXT);
+                    text->literal = g_strndup(p, (size_t)(end - p));
+                    g_ptr_array_add(node->children, text);
+                    g_ptr_array_add(out, node);
+                    p = end;
                     text_start = p;
                     continue;
                 }
@@ -527,7 +836,18 @@ static void parse_list(MdNode* container, char** lines, size_t start, size_t end
             item->children = g_ptr_array_new();
             item_lines = g_ptr_array_new_with_free_func(g_free);
             item_indent = lsp + width;
-            g_ptr_array_add(item_lines, g_strdup(s + item_indent));
+            const char* item_content = s + item_indent;
+            gboolean checked = FALSE;
+            if (options != NULL && md_options_has(options, MD_FEATURE_GFM_TASKLISTS) &&
+                parse_task_marker(item_content, &checked))
+            {
+                item->task = TRUE;
+                item->task_checked = checked;
+                item_content += 3; /* "[ ]" / "[x]" */
+                while (*item_content == ' ' || *item_content == '\t')
+                    item_content++;
+            }
+            g_ptr_array_add(item_lines, g_strdup(item_content));
             add_child(list, item);
         }
         else if (item != NULL)
@@ -638,12 +958,12 @@ static gsize parse_delimiter_row(const char* s, MdAlign* aligns, gsize max_cols)
     return n;
 }
 
-static void add_table_cell(MdNode* row, const char* text, MdAlign align)
+static void add_table_cell(MdNode* row, const char* text, MdAlign align, const MdOptions* options)
 {
     MdNode* cell = node_new(MD_NODE_TABLE_CELL);
     cell->align = align;
     cell->children = g_ptr_array_new();
-    parse_inline(cell->children, text);
+    parse_inline(cell->children, text, options);
     add_child(row, cell);
 }
 
@@ -743,7 +1063,7 @@ static void parse_blocks(MdNode* container, char** lines, size_t n, size_t inden
             MdNode* node = node_new(MD_NODE_HEADING);
             node->level = level;
             node->children = g_ptr_array_new();
-            parse_inline(node->children, text);
+            parse_inline(node->children, text, options);
             add_child(container, node);
             i++;
             continue;
@@ -809,7 +1129,8 @@ static void parse_blocks(MdNode* container, char** lines, size_t n, size_t inden
                 header_row->header = TRUE;
                 header_row->children = g_ptr_array_new();
                 for (gsize c = 0; c < header_cols; c++)
-                    add_table_cell(header_row, g_ptr_array_index(header_cells, c), aligns[c]);
+                    add_table_cell(header_row, g_ptr_array_index(header_cells, c), aligns[c],
+                                   options);
                 add_child(table, header_row);
 
                 while (i < n)
@@ -827,7 +1148,7 @@ static void parse_blocks(MdNode* container, char** lines, size_t n, size_t inden
                     {
                         const gchar* cell_text =
                             (c < cells->len) ? g_ptr_array_index(cells, c) : "";
-                        add_table_cell(row, cell_text, aligns[c]);
+                        add_table_cell(row, cell_text, aligns[c], options);
                     }
                     g_ptr_array_free(cells, TRUE);
                     add_child(table, row);
@@ -906,7 +1227,7 @@ static void parse_blocks(MdNode* container, char** lines, size_t n, size_t inden
             g_string_append(text_buf, lc);
             i++;
         }
-        parse_inline(para->children, text_buf->str);
+        parse_inline(para->children, text_buf->str, options);
         g_string_free(text_buf, TRUE);
         add_child(container, para);
     }
@@ -940,6 +1261,11 @@ static void render_html(const MdNode* node, GString* out)
             node->parent->parent->tight)
         {
             render_inline_children(node, out);
+            /* cmark separates a tight item's paragraph from a following
+             * block (e.g. a nested list) with a newline. */
+            if (node->parent->children->len > 1 &&
+                g_ptr_array_index(node->parent->children, node->parent->children->len - 1) != node)
+                g_string_append_c(out, '\n');
         }
         else
         {
@@ -971,6 +1297,10 @@ static void render_html(const MdNode* node, GString* out)
 
     case MD_NODE_ITEM:
         g_string_append(out, "<li>");
+        if (node->task)
+            g_string_append(out, node->task_checked
+                                     ? "<input checked=\"\" disabled=\"\" type=\"checkbox\"> "
+                                     : "<input disabled=\"\" type=\"checkbox\"> ");
         for (guint i = 0; i < node->children->len; i++)
             render_html(g_ptr_array_index(node->children, i), out);
         g_string_append(out, "</li>\n");
@@ -1070,6 +1400,11 @@ static void render_inline_children(const MdNode* node, GString* out)
             g_string_append(out, "<strong>");
             render_inline_children(child, out);
             g_string_append(out, "</strong>");
+            break;
+        case MD_NODE_STRIKETHROUGH:
+            g_string_append(out, "<del>");
+            render_inline_children(child, out);
+            g_string_append(out, "</del>");
             break;
         case MD_NODE_LINK:
         {

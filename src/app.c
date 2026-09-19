@@ -583,6 +583,9 @@ static void render_markdown(MdApp* app, const gchar* markdown)
     GError* error = NULL;
     MdOptions opts = md_options_default();
     md_options_set(&opts, MD_FEATURE_GFM_TABLES, TRUE);
+    md_options_set(&opts, MD_FEATURE_GFM_STRIKETHROUGH, TRUE);
+    md_options_set(&opts, MD_FEATURE_GFM_TASKLISTS, TRUE);
+    md_options_set(&opts, MD_FEATURE_GFM_AUTOLINKS, TRUE);
     MdNode* doc = md_parse(markdown, &opts, &error);
     if (doc == NULL)
     {

@@ -12,6 +12,7 @@ typedef struct
     GtkTextTag* heading[6];
     GtkTextTag* bold;
     GtkTextTag* italic;
+    GtkTextTag* strikethrough;
     GtkTextTag* mono;
     GtkTextTag* codeblock;
     GtkTextTag* link;
@@ -58,6 +59,11 @@ static void create_tags(RenderCtx* ctx)
     ctx->italic = get_tag(b, "md-italic");
     if (ctx->italic == NULL)
         ctx->italic = gtk_text_buffer_create_tag(b, "md-italic", "style", PANGO_STYLE_ITALIC, NULL);
+
+    ctx->strikethrough = get_tag(b, "md-strike");
+    if (ctx->strikethrough == NULL)
+        ctx->strikethrough =
+            gtk_text_buffer_create_tag(b, "md-strike", "strikethrough", TRUE, NULL);
 
     ctx->mono = get_tag(b, "md-mono");
     if (ctx->mono == NULL)
@@ -372,6 +378,9 @@ static void render_inline_children(const MdNode* node, RenderCtx* ctx)
         case MD_NODE_STRONG:
             render_inline_tagged(child, ctx->bold, ctx);
             break;
+        case MD_NODE_STRIKETHROUGH:
+            render_inline_tagged(child, ctx->strikethrough, ctx);
+            break;
         case MD_NODE_CODE_SPAN:
             insert_text(ctx, child->literal, ctx->mono);
             break;
@@ -451,7 +460,16 @@ static void render_list_item(const MdNode* item, const char* marker, RenderCtx* 
     gint start = gtk_text_buffer_get_char_count(ctx->buffer);
     insert_text(ctx, pad, NULL);
     g_free(pad);
-    insert_text(ctx, marker, NULL);
+    if (item->task)
+    {
+        if (item->parent != NULL && item->parent->list_type == MD_LIST_ORDERED)
+            insert_text(ctx, marker, NULL);
+        insert_text(ctx, item->task_checked ? "☑ " : "☐ ", NULL);
+    }
+    else
+    {
+        insert_text(ctx, marker, NULL);
+    }
 
     /* A single tight paragraph renders inline; otherwise render blocks. */
     if (item->children->len == 1 &&
