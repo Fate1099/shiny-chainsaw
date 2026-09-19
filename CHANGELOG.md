@@ -8,11 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Large images no longer overlap surrounding text and other images when they
-  finish loading asynchronously. The anchor widget's resize is now queued on
-  the child (not the view), forcing the text view to recompute its layout.
-  Images that load before the window is first laid out are capped instead of
-  being embedded at full size.
+- Images and text no longer overlap after images finish loading asynchronously.
+  GtkTextView caches per-line displays, so after an anchored image grew we now
+  drop the whole cached layout (re-setting the wrap mode) and repaint, instead
+  of only re-queueing a resize that left text and later images drawing over
+  the image. Images that load before the window is first laid out are capped
+  instead of being embedded at full size.
 
 ### Added
 

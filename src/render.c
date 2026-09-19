@@ -223,6 +223,19 @@ static GdkPixbuf* scale_to_fit(MdImageLoad* data, GdkPixbuf* pixbuf)
     return gdk_pixbuf_scale_simple(pixbuf, nw, (h * nw) / w, GDK_INTERP_BILINEAR);
 }
 
+/* GtkTextView caches per-line display objects. Revalidating the layout
+ * (queue_resize) moves the lines but leaves the stale cached displays in
+ * place, so text keeps drawing over the grown image. Re-setting the wrap
+ * mode to a different value forces a full layout invalidation; restoring it
+ * then repaints with the correct positions. */
+static void force_full_relayout(GtkTextView* view)
+{
+    GtkWrapMode mode = gtk_text_view_get_wrap_mode(view);
+    gtk_text_view_set_wrap_mode(view, mode == GTK_WRAP_NONE ? GTK_WRAP_CHAR : GTK_WRAP_NONE);
+    gtk_text_view_set_wrap_mode(view, mode);
+    gtk_widget_queue_draw(GTK_WIDGET(view));
+}
+
 static void image_finished(MdImageLoad* data, GBytes* bytes)
 {
     g_ptr_array_remove(data->loads, data->cancel);
@@ -249,10 +262,10 @@ static void image_finished(MdImageLoad* data, GBytes* bytes)
         gtk_image_set_from_icon_name(data->image, "image-missing", GTK_ICON_SIZE_DIALOG);
     }
 
-    /* The anchor widget's size changed since it was inserted; queueing a
-     * resize on the anchor child (not the view) forces the text view to
-     * recompute its layout so subsequent lines/images don't overlap. */
+    /* The anchor widget grew since it was inserted; drop all cached layout
+     * and repaint so text and other images don't draw over it. */
     gtk_widget_queue_resize(data->widget);
+    force_full_relayout(data->view);
 
     md_image_load_free(data);
 }
