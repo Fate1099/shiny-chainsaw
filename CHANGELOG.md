@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Table columns are padded by glyph width instead of byte length, so cells
+  with non-ASCII characters (e.g. "für") no longer misalign the pipes and
+  dashes in the rendered monospace block. Cell width now also accounts for
+  inline formatting (bold, links, code) and wide (CJK) characters.
 - Images and text no longer overlap after images finish loading asynchronously.
   GtkTextView caches per-line displays, so after an anchored image grew we now
   drop the whole cached layout (re-setting the wrap mode) and repaint, instead

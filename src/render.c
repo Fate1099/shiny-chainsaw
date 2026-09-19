@@ -2,8 +2,6 @@
 
 #include <libsoup/soup.h>
 
-#include <string.h>
-
 typedef struct
 {
     GtkTextBuffer* buffer;
@@ -477,14 +475,35 @@ static void render_list_item(const MdNode* item, const char* marker, RenderCtx* 
 /* GFM tables are drawn as an aligned monospace block with pipes, dashes,
  * and per-column alignment padding. Cells keep their inline tags (bold,
  * links, code) because the block-wide table tag only sets family/background. */
-static gint table_cell_width(const MdNode* cell)
+static gint utf8_display_width(const char* s)
 {
     gint w = 0;
-    for (guint i = 0; i < cell->children->len; i++)
+    const char* p = s;
+    while (*p != '\0')
     {
-        const MdNode* c = g_ptr_array_index(cell->children, i);
-        if (c->kind == MD_NODE_TEXT)
-            w += (gint)strlen(c->literal);
+        gunichar c = g_utf8_get_char(p);
+        w += g_unichar_iswide(c) ? 2 : 1;
+        p = g_utf8_next_char(p);
+    }
+    return w;
+}
+
+/* Glyph width of an inline subtree (text, code, and nested formatting). */
+static gint inline_display_width(const MdNode* node)
+{
+    switch (node->kind)
+    {
+    case MD_NODE_TEXT:
+    case MD_NODE_CODE_SPAN:
+        return utf8_display_width(node->literal);
+    default:
+        break;
+    }
+    gint w = 0;
+    if (node->children != NULL)
+    {
+        for (guint i = 0; i < node->children->len; i++)
+            w += inline_display_width(g_ptr_array_index(node->children, i));
     }
     return w;
 }
@@ -505,7 +524,7 @@ static void render_table(const MdNode* node, RenderCtx* ctx)
         const MdNode* row = g_ptr_array_index(node->children, r);
         for (gint c = 0; c < ncols && (guint)c < row->children->len; c++)
         {
-            gint w = table_cell_width(g_ptr_array_index(row->children, c)) + 2;
+            gint w = inline_display_width(g_ptr_array_index(row->children, c)) + 2;
             if (w > widths[c])
                 widths[c] = w;
         }
@@ -521,7 +540,7 @@ static void render_table(const MdNode* node, RenderCtx* ctx)
             if ((guint)c < row->children->len)
             {
                 const MdNode* cell = g_ptr_array_index(row->children, c);
-                gint avail = widths[c] - table_cell_width(cell);
+                gint avail = widths[c] - inline_display_width(cell);
                 gint left = 1, right = avail - 1;
                 if (cell->align == MD_ALIGN_CENTER)
                 {
