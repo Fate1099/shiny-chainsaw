@@ -46,6 +46,7 @@ static void replace_arrow(GString* s, const gchar* line)
         arrow = strstr(p, "\xe2\x86\x92");
     }
     g_string_append(s, p);
+    g_string_append_c(s, '\n');
 }
 
 static void begin_example(ParseCtx* ctx, const gchar* line)
@@ -172,7 +173,8 @@ int main(int argc, char** argv)
         line_number++;
 
         gchar* line = g_strndup(pos, line_len);
-        gchar* stripped = g_strstrip(line); /* in-place */
+        gchar* stripped = g_strdup(line);
+        g_strstrip(stripped); /* stripped copy, keep line intact */
         if (ctx.state == 1 || ctx.state == 2)
         {
             gboolean matched = FALSE;
@@ -221,6 +223,7 @@ int main(int argc, char** argv)
             ctx.section = g_strdup(stripped + strspn(stripped, "#") + 1);
         }
         g_free(line);
+        g_free(stripped);
         pos = pos + line_len + 1;
         (void)start_line;
     }
