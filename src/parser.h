@@ -15,9 +15,12 @@ typedef enum
     MD_FEATURE_GFM_STRIKETHROUGH = 1 << 1,
     MD_FEATURE_GFM_TASKLISTS = 1 << 2,
     MD_FEATURE_GFM_AUTOLINKS = 1 << 3,
-    MD_FEATURE_EXTRA_DEFINITION_LISTS = 1 << 4,
-    MD_FEATURE_EXTRA_FOOTNOTES = 1 << 5,
-    MD_FEATURE_EXTRA_ABBREVIATIONS = 1 << 6,
+    MD_FEATURE_GFM_RAW_HTML = 1 << 4,
+    /* Declared for the Markdown Extra milestone (docs/roadmap.md); the parser
+     * currently ignores these flags. */
+    MD_FEATURE_EXTRA_DEFINITION_LISTS = 1 << 5,
+    MD_FEATURE_EXTRA_FOOTNOTES = 1 << 6,
+    MD_FEATURE_EXTRA_ABBREVIATIONS = 1 << 7,
 } MdFeature;
 
 typedef struct
@@ -40,6 +43,7 @@ typedef enum
     MD_NODE_ITEM,
     MD_NODE_CODE_BLOCK,
     MD_NODE_THEMATIC_BREAK,
+    MD_NODE_HTML_BLOCK,
     MD_NODE_TABLE,
     MD_NODE_TABLE_ROW,
     MD_NODE_TABLE_CELL,
@@ -51,6 +55,8 @@ typedef enum
     MD_NODE_CODE_SPAN,
     MD_NODE_LINK,
     MD_NODE_IMAGE,
+    MD_NODE_HARD_BREAK,
+    MD_NODE_RAW_HTML,
 } MdNodeKind;
 
 typedef enum
@@ -76,16 +82,19 @@ typedef struct MdNode
     /* literals (owned; NULL unless relevant) */
     char* literal; /* text, code content, link/image URL */
     char* title;   /* link/image title */
+    char* info;    /* fenced code block info string */
 
     /* attributes by kind */
     int level; /* heading 1..6 */
     MdListType list_type;
-    int start;             /* ordered list start number */
-    gboolean tight;        /* list: no blank lines between items */
-    MdAlign align;         /* table cell: column alignment */
-    gboolean header;       /* table row: true for the header row */
-    gboolean task;         /* list item: GFM task list item */
-    gboolean task_checked; /* list item: task checkbox is checked */
+    int start;                  /* ordered list start number */
+    char marker;                /* bullet char, or '.' / ')' for ordered lists */
+    gboolean tight;             /* list: no blank lines between items */
+    MdAlign align;              /* table cell: column alignment */
+    gboolean header;            /* table row: true for the header row */
+    gboolean task;              /* list item: GFM task list item */
+    gboolean task_checked;      /* list item: task checkbox is checked */
+    gboolean raw_html_filtered; /* raw HTML that GFM escapes only partially */
 } MdNode;
 
 /* ------------------------------------------------------------------ */
@@ -99,6 +108,14 @@ gboolean md_options_has(const MdOptions* options, MdFeature feature);
 /* ------------------------------------------------------------------ */
 /* Parsing                                                             */
 /* ------------------------------------------------------------------ */
+
+/** Error domain for parser failures. */
+#define MD_PARSER_ERROR_DOMAIN "md-parser"
+
+typedef enum
+{
+    MD_PARSER_ERROR_INVALID_INPUT = 1,
+} MdParserError;
 
 /**
  * Parse raw Markdown into an AST.
