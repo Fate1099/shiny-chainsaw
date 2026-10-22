@@ -33,6 +33,12 @@ typedef struct
  */
 void md_render_to_buffer(const MdNode* doc, const MdRenderOptions* options);
 
+/**
+ * Cancels image loads still in flight for a view. Call before the view or the
+ * session it renders with is destroyed.
+ */
+void md_render_cancel_loads(GtkTextView* view);
+
 G_END_DECLS
 
 #endif /* MD_RENDER_H */

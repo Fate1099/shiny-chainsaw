@@ -26,3 +26,12 @@ gfm_spec = join_paths(meson.current_source_dir(), 'spec', 'gfm.txt')
 
 test('commonmark-spec', spec_tests, args: [commonmark_spec, 'commonmark'], suite: 'conformance')
 test('gfm-spec', spec_tests, args: [gfm_spec, 'gfm'], suite: 'conformance')
+
+render_test = executable(
+  'test_render',
+  sources: ['test_render.c', '../src/parser.c', '../src/render.c'],
+  include_directories: include_directories('../src'),
+  dependencies: [test_dep, gtkdep, dependency('libsoup-3.0', version: '>= 3.0')],
+)
+
+test('render', render_test, suite: 'render')

@@ -138,13 +138,14 @@ typedef struct
 {
     GtkImage* image;      /* owned ref until the load settles */
     GtkWidget* widget;    /* owned ref: the child anchored in the view */
-    GtkTextView* view;    /* borrowed */
+    GtkTextView* view;    /* owned ref: a re-render or window close must not
+                           * leave this dangling while a load is in flight */
     SoupSession* session; /* borrowed */
     GCancellable* cancel; /* owned ref */
-    GPtrArray* loads;     /* borrowed: the view's in-flight cancellables */
+    GPtrArray* loads;     /* owned ref: the view's in-flight cancellables */
     guint max_width;
-    const gchar* base_dir; /* borrowed */
-    gchar* src;            /* owned */
+    gchar* base_dir; /* owned */
+    gchar* src;      /* owned */
 } MdImageLoad;
 
 /* Per-view list of in-flight image loads, so a re-render can cancel them. */
@@ -160,7 +161,7 @@ static GPtrArray* view_loads(GtkTextView* view)
     return p;
 }
 
-static void cancel_pending_loads(GtkTextView* view)
+void md_render_cancel_loads(GtkTextView* view)
 {
     GPtrArray* loads = g_object_get_data(G_OBJECT(view), "md-image-loads");
     if (loads != NULL)
@@ -175,7 +176,10 @@ static void md_image_load_free(MdImageLoad* data)
 {
     g_object_unref(data->image);
     g_object_unref(data->widget);
+    g_object_unref(data->view);
+    g_object_unref(data->loads);
     g_object_unref(data->cancel);
+    g_free(data->base_dir);
     g_free(data->src);
     g_free(data);
 }
@@ -224,7 +228,11 @@ static GdkPixbuf* scale_to_fit(MdImageLoad* data, GdkPixbuf* pixbuf)
     if (w <= (gint)maxw)
         return NULL;
     gint nw = (gint)maxw;
-    return gdk_pixbuf_scale_simple(pixbuf, nw, (h * nw) / w, GDK_INTERP_BILINEAR);
+    /* gint64 so h * nw cannot overflow for large images. */
+    gint nh = (gint)(((gint64)h * nw) / w);
+    if (nh < 1)
+        nh = 1;
+    return gdk_pixbuf_scale_simple(pixbuf, nw, nh, GDK_INTERP_BILINEAR);
 }
 
 /* GtkTextView caches per-line display objects. Revalidating the layout
@@ -339,9 +347,7 @@ static void start_image_load(MdImageLoad* data)
     gchar* path = NULL;
     if (g_str_has_prefix(src, "file://"))
         path = g_filename_from_uri(src, NULL, NULL);
-    else if (g_path_is_absolute(src))
-        path = g_strdup(src);
-    else if (data->base_dir != NULL && *data->base_dir != '\0')
+    else if (!g_path_is_absolute(src) && data->base_dir != NULL && *data->base_dir != '\0')
         path = g_build_filename(data->base_dir, src, NULL);
     else
         path = g_strdup(src);
@@ -372,6 +378,9 @@ static void render_inline_children(const MdNode* node, RenderCtx* ctx)
         case MD_NODE_TEXT:
             insert_text(ctx, child->literal, NULL);
             break;
+        case MD_NODE_HARD_BREAK:
+            insert_text(ctx, "\n", NULL);
+            break;
         case MD_NODE_EMPHASIS:
             render_inline_tagged(child, ctx->italic, ctx);
             break;
@@ -382,6 +391,7 @@ static void render_inline_children(const MdNode* node, RenderCtx* ctx)
             render_inline_tagged(child, ctx->strikethrough, ctx);
             break;
         case MD_NODE_CODE_SPAN:
+        case MD_NODE_RAW_HTML:
             insert_text(ctx, child->literal, ctx->mono);
             break;
         case MD_NODE_LINK:
@@ -407,7 +417,7 @@ static void render_inline_children(const MdNode* node, RenderCtx* ctx)
                 GtkWidget* caption = gtk_label_new(alt->str);
                 gtk_label_set_justify(GTK_LABEL(caption), GTK_JUSTIFY_CENTER);
                 gtk_label_set_line_wrap(GTK_LABEL(caption), TRUE);
-                gtk_label_set_xalign(GTK_LABEL(caption), 0.5);
+                gtk_label_set_xalign(GTK_LABEL(caption), (gfloat)0.5);
                 PangoAttrList* attrs = pango_attr_list_new();
                 pango_attr_list_insert(attrs, pango_attr_style_new(PANGO_STYLE_ITALIC));
                 pango_attr_list_insert(attrs, pango_attr_size_new(9 * PANGO_SCALE));
@@ -430,12 +440,12 @@ static void render_inline_children(const MdNode* node, RenderCtx* ctx)
             MdImageLoad* data = g_new0(MdImageLoad, 1);
             data->image = GTK_IMAGE(g_object_ref(image));
             data->widget = g_object_ref(box);
-            data->view = GTK_TEXT_VIEW(ctx->view);
+            data->view = GTK_TEXT_VIEW(g_object_ref(ctx->view));
             data->session = ctx->session;
             data->cancel = g_cancellable_new();
-            data->loads = view_loads(GTK_TEXT_VIEW(ctx->view));
+            data->loads = g_object_ref(view_loads(GTK_TEXT_VIEW(ctx->view)));
             data->max_width = ctx->max_width;
-            data->base_dir = ctx->base_dir;
+            data->base_dir = g_strdup(ctx->base_dir);
             data->src = g_strdup(child->literal);
             start_image_load(data);
 
@@ -456,7 +466,7 @@ static void render_list_item(const MdNode* item, const char* marker, RenderCtx* 
 {
     gboolean prev_tight = ctx->tight;
 
-    gchar* pad = g_strnfill((gsize)(ctx->list_depth * MD_LIST_INDENT), ' ');
+    gchar* pad = g_strnfill((gsize)ctx->list_depth * MD_LIST_INDENT, ' ');
     gint start = gtk_text_buffer_get_char_count(ctx->buffer);
     insert_text(ctx, pad, NULL);
     g_free(pad);
@@ -675,6 +685,11 @@ static void render_block(const MdNode* node, RenderCtx* ctx)
         insert_text(ctx, "\n\n", NULL);
         break;
 
+    case MD_NODE_HTML_BLOCK:
+        insert_text(ctx, node->literal, ctx->codeblock);
+        insert_text(ctx, "\n", NULL);
+        break;
+
     case MD_NODE_THEMATIC_BREAK:
         insert_text(ctx, "────────────────────────────", NULL);
         insert_text(ctx, "\n\n", NULL);
@@ -696,7 +711,7 @@ void md_render_to_buffer(const MdNode* doc, const MdRenderOptions* options)
     g_return_if_fail(GTK_IS_TEXT_VIEW(options->view));
 
     GtkTextBuffer* buffer = gtk_text_view_get_buffer(options->view);
-    cancel_pending_loads(options->view);
+    md_render_cancel_loads(options->view);
 
     RenderCtx ctx = {0};
     ctx.buffer = buffer;
