@@ -12,6 +12,7 @@ typedef struct
     guint start_line;
     guint end_line;
     gchar* section;
+    guint features;
 } Example;
 
 static void example_free(Example* ex)
@@ -31,8 +32,32 @@ typedef struct
     guint end_line;
     gchar* section;
     gint state;
-    gboolean disabled;
+    guint features;
 } ParseCtx;
+
+/* Maps the extension flags on an example fence to parser features. `tagfilter`
+ * is deliberately absent: the disallowed-raw-HTML filter belongs to the raw-HTML
+ * grammar, which gfm mode always enables. */
+static guint parse_example_flags(const gchar* line)
+{
+    const gchar* rest = line + strlen(FENCE " example");
+    guint features = 0;
+    gchar** parts = g_strsplit(rest, " ", -1);
+    for (guint i = 0; parts[i] != NULL; i++)
+    {
+        const gchar* flag = parts[i];
+        if (strcmp(flag, "table") == 0)
+            features |= MD_FEATURE_GFM_TABLES;
+        else if (strcmp(flag, "strikethrough") == 0)
+            features |= MD_FEATURE_GFM_STRIKETHROUGH;
+        else if (strcmp(flag, "tasklist") == 0)
+            features |= MD_FEATURE_GFM_TASKLISTS;
+        else if (strcmp(flag, "autolink") == 0)
+            features |= MD_FEATURE_GFM_AUTOLINKS;
+    }
+    g_strfreev(parts);
+    return features;
+}
 
 static void replace_arrow(GString* s, const gchar* line)
 {
@@ -40,7 +65,7 @@ static void replace_arrow(GString* s, const gchar* line)
     const gchar* arrow = strstr(p, "\xe2\x86\x92");
     while (arrow != NULL)
     {
-        g_string_append_len(s, p, (gsize)(arrow - p));
+        g_string_append_len(s, p, (gssize)(arrow - p));
         g_string_append_c(s, '\t');
         p = arrow + strlen("\xe2\x86\x92");
         arrow = strstr(p, "\xe2\x86\x92");
@@ -52,7 +77,7 @@ static void replace_arrow(GString* s, const gchar* line)
 static void begin_example(ParseCtx* ctx, const gchar* line)
 {
     ctx->state = 1;
-    ctx->disabled = (strstr(line, "disabled") != NULL);
+    ctx->features = parse_example_flags(line);
     if (ctx->markdown != NULL)
         g_string_free(ctx->markdown, TRUE);
     if (ctx->html != NULL)
@@ -69,6 +94,7 @@ static Example* close_example(ParseCtx* ctx, guint line_number)
     ex->start_line = ctx->start_line;
     ex->end_line = line_number;
     ex->section = g_strdup(ctx->section != NULL ? ctx->section : "");
+    ex->features = ctx->features;
     ex->markdown = ctx->markdown != NULL ? g_string_free(ctx->markdown, FALSE) : g_strdup("");
     ex->html = ctx->html != NULL ? g_string_free(ctx->html, FALSE) : g_strdup("");
     ctx->markdown = NULL;
@@ -163,7 +189,6 @@ int main(int argc, char** argv)
     ctx.state = 0;
 
     GPtrArray* tests = g_ptr_array_new_with_free_func((GDestroyNotify)example_free);
-    guint start_line = 0;
     const gchar* pos = buf;
     guint line_number = 0;
     while (pos < buf + len)
@@ -186,11 +211,8 @@ int main(int argc, char** argv)
             else if (ctx.state == 2 && g_strcmp0(stripped, FENCE) == 0)
             {
                 ctx.example_number++;
-                if (!ctx.disabled)
-                {
-                    Example* ex = close_example(&ctx, line_number);
-                    g_ptr_array_add(tests, ex);
-                }
+                Example* ex = close_example(&ctx, line_number);
+                g_ptr_array_add(tests, ex);
                 ctx.state = 0;
                 matched = TRUE;
             }
@@ -225,16 +247,13 @@ int main(int argc, char** argv)
         g_free(line);
         g_free(stripped);
         pos = pos + line_len + 1;
-        (void)start_line;
     }
 
-    MdOptions opts = md_options_default();
+    MdOptions base = md_options_default();
     if (strcmp(argv[2], "gfm") == 0)
     {
-        md_options_set(&opts, MD_FEATURE_GFM_TABLES, TRUE);
-        md_options_set(&opts, MD_FEATURE_GFM_STRIKETHROUGH, TRUE);
-        md_options_set(&opts, MD_FEATURE_GFM_TASKLISTS, TRUE);
-        md_options_set(&opts, MD_FEATURE_GFM_AUTOLINKS, TRUE);
+        /* The raw HTML grammar is part of GFM core, not an extension. */
+        md_options_set(&base, MD_FEATURE_GFM_RAW_HTML, TRUE);
     }
 
     guint passed = 0;
@@ -242,6 +261,8 @@ int main(int argc, char** argv)
     for (guint i = 0; i < tests->len; i++)
     {
         Example* ex = (Example*)g_ptr_array_index(tests, i);
+        MdOptions opts = base;
+        opts.flags |= ex->features;
         GError* error = NULL;
         MdNode* doc = md_parse(ex->markdown, &opts, &error);
         if (doc == NULL)
