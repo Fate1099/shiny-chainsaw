@@ -99,7 +99,8 @@ header but are unimplemented.
 Requires `rpmbuild` and the `%meson` macros (`redhat-rpm-config`). The script fails
 if `Version:` in `packaging/md-viewer.spec` does not match `version:` in
 `meson.build` — bump both together. It builds a separate release build in
-`build-rpm/` and deliberately excludes the conformance suite.
+`build-rpm/` and runs every suite, conformance included; the render suite skips
+itself in the headless build environment.
 
 ## Conventions
 

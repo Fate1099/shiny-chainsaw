@@ -34,9 +34,7 @@ fi
 BUILD="build-rpm"
 meson setup "$BUILD" --buildtype=release
 meson compile -C "$BUILD"
-# Conformance tests are work in progress (parser incomplete, see
-# docs/roadmap.md); do not let them block package builds.
-meson test -C "$BUILD" --no-suite conformance
+meson test -C "$BUILD" --print-errorlogs
 meson dist -C "$BUILD" --no-tests --allow-dirty
 
 TARBALL=""

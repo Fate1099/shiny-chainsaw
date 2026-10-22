@@ -68,10 +68,13 @@ Flavors:
 
 ## Milestone 6 — Rendering
 
-- [x] Renderer walks AST → HTML
-- [x] Render parser HTML into `GtkTextBuffer` with Pango markup
+- [x] Renderer walks the AST block by block / inline by inline
+- [x] `md_render_html` emits HTML for the conformance harness
+- [x] Styling through named `GtkTextTag`s (`md-heading1`, `md-bold`, `md-mono`,
+      …) rather than markup strings, so user content never needs escaping
 - [x] Syntax-aware styling for code blocks
-- [x] CSS-driven theme via GResource (`data/`)
+- [x] Zoom styling via a `GtkCssProvider`
+- [ ] CSS theme file in `data/`
 
 ## Milestone 7 — UX
 
@@ -79,6 +82,18 @@ Flavors:
 - [ ] Recent files
 - [x] Keyboard shortcuts (open, search, sidebar, zoom, quit)
 - [ ] Live reload on file change
+
+## Milestone 8 — Release engineering
+
+- [x] Conformance suites run in the RPM build (they are green, so they no
+      longer need to be skipped)
+- [ ] CI: build, every test suite, lint, valgrind; render suite under `xvfb`
+- [ ] Robustness suite: truncated, deeply nested, and malformed input under
+      ASAN/UBSAN
+- [ ] Generated CommonMark fixture (`scripts/gen-commonmark-spec.py`) instead of
+      a hand-transformed one
+- [ ] Tagged releases, with `CHANGELOG.md` versioned and `meson.build` /
+      `packaging/md-viewer.spec` kept in step
 
 ## Design notes
 

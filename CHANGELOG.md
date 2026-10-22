@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The RPM build no longer skips the conformance suite. `packaging/build-rpm.sh`
+  and the spec's `%check` run every suite, since both spec suites now pass.
 - The vendored `tests/spec/gfm.txt` fixture was mangled (nested emphasis
   examples collapsed). It is now regenerated verbatim from the official spec
   page by `scripts/gen-gfm-spec.py`, and the harness honours the per-example

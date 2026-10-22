@@ -10,10 +10,10 @@ renderers — the parser lives in-repo and is implemented in pure C.
 - Pure-C Markdown parser (no external renderer, no GTK dependency in the core)
 - Parser unit-testable headlessly
 - Inline image rendering (remote via libsoup3, local files, relative paths)
-- HTML comment stripping
 - GFM tables with alignment, rendered as an aligned monospace block
 - GFM strikethrough, task lists, and autolinks
 - Nested lists indented by depth
+- Raw HTML and HTML comments kept as literal text in the view (nothing is dropped)
 
 ## Requirements
 
@@ -35,8 +35,19 @@ ninja -C build
 ## Test
 
 ```sh
-meson test -C build
+meson test -C build                        # parser, conformance, render suites
+meson test -C build test_parser            # a single suite
+meson compile -C build lint                # clang-format + clang-tidy
 ```
+
+The `conformance` suite runs the vendored specs in `tests/spec/` through
+`md_parse` + `md_render_html` and diffs the HTML line by line:
+**652/652 CommonMark** and **677/677 GFM** examples pass. The `render` suite
+drives `md_render_to_buffer` against a real `GtkTextView`; it needs a display
+and prints `skipped` (exit 0) when one is not available.
+
+`lint` needs `clang-format` and/or `clang-tidy`; whichever is missing is
+skipped rather than failing the build.
 
 ## Package (RPM)
 
@@ -56,17 +67,22 @@ release build, archives the source with `meson dist`, and feeds it to
 ## Project layout
 
 - `src/`    — app source (entry point, GTK UI, pure-C parser, GTK renderer, shortcuts)
-- `tests/`  — parser unit tests
-- `data/`   — GLib resources (bundled manual)
+- `tests/`  — parser unit tests, the spec conformance harness, the render suite
+- `data/`   — GLib resources (bundled manual), desktop file, GSettings schema
 - `docs/`   — design notes and roadmap
+- `scripts/`— lint target and the generators for the spec fixtures and entity table
 
 ## Status
 
-CommonMark block + inline parsing (headings, paragraphs, lists, code, blockquotes,
-links/images, emphasis) with a GTK renderer and file-open/search UI. GFM and
-Markdown Extra extensions are planned but not yet implemented; see
-[AGENTS.md](AGENTS.md) and [docs/roadmap.md](docs/roadmap.md). Release history
-is in [CHANGELOG.md](CHANGELOG.md).
+CommonMark block and inline parsing and the AST satisfy the vendored spec
+suites (652/652 CommonMark, 677/677 GFM). Implemented: headings, paragraphs,
+lists (including nesting), blockquotes, code, links and images, emphasis, GFM
+tables (aligned by glyph width), strikethrough, task lists, autolinks, the GFM
+raw-HTML grammar and its disallowed-tag filter, image rendering, file open,
+search, zoom, and keyboard shortcuts. Not implemented: Markdown Extra (the
+`MD_FEATURE_EXTRA_*` flags exist but the parser ignores them) and live reload
+on file change. Release history is in [CHANGELOG.md](CHANGELOG.md); details are
+in [docs/roadmap.md](docs/roadmap.md) and [docs/design-notes.md](docs/design-notes.md).
 
 ## License
 
