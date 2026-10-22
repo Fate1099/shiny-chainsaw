@@ -4,8 +4,8 @@ typedef void (*MdActivateFunc)(MdApp* app);
 
 typedef struct
 {
-    const gchar* name;  /* action suffix, registered as "app.<name>" */
-    const gchar* accel; /* GTK accelerator string, NULL if none */
+    const gchar* name;      /* action suffix, registered as "app.<name>" */
+    const gchar* accels[3]; /* GTK accelerator strings, NULL-terminated */
     MdActivateFunc handler;
 } MdShortcut;
 
@@ -16,14 +16,16 @@ static void quit_activated(MdApp* app)
 
 /* One place to see and edit every shortcut in the app. */
 static const MdShortcut SHORTCUTS[] = {
-    {"open", "<Primary>o", md_app_show_open_dialog},
-    {"search", "<Primary>f", md_app_show_search},
-    {"sidebar", "F9", md_app_toggle_sidebar},
-    {"zoom-in", "<Primary>plus", md_app_zoom_in},
-    {"zoom-out", "<Primary>minus", md_app_zoom_out},
-    {"zoom-reset", "<Primary>0", md_app_zoom_reset},
-    {"about", NULL, md_app_show_about},
-    {"quit", "<Primary>q", quit_activated},
+    {"open", {"<Primary>o", NULL}, md_app_show_open_dialog},
+    {"search", {"<Primary>f", NULL}, md_app_show_search},
+    {"sidebar", {"F9", NULL}, md_app_toggle_sidebar},
+    /* Ctrl+= is what most keyboards reach for; Ctrl++ (Shift+1) is the
+     * literal "plus" keysym and is registered as well. */
+    {"zoom-in", {"<Primary>plus", "<Primary>equal", NULL}, md_app_zoom_in},
+    {"zoom-out", {"<Primary>minus", NULL}, md_app_zoom_out},
+    {"zoom-reset", {"<Primary>0", NULL}, md_app_zoom_reset},
+    {"about", {NULL}, md_app_show_about},
+    {"quit", {"<Primary>q", NULL}, quit_activated},
 };
 
 typedef struct
@@ -63,12 +65,10 @@ void md_shortcuts_register(MdApp* app)
                               (GClosureNotify)action_data_free, 0);
         g_action_map_add_action(G_ACTION_MAP(gapp), G_ACTION(action));
 
-        if (sc->accel != NULL)
+        if (sc->accels[0] != NULL)
         {
             gchar* full = g_strconcat("app.", sc->name, NULL);
-            gchar* accels[] = {(gchar*)sc->accel, NULL};
-            gtk_application_set_accels_for_action(GTK_APPLICATION(gapp), full,
-                                                  (const gchar* const*)accels);
+            gtk_application_set_accels_for_action(GTK_APPLICATION(gapp), full, sc->accels);
             g_free(full);
         }
     }

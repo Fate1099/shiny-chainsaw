@@ -2,29 +2,47 @@
 #include <glib.h>
 #include <string.h>
 
-/* Translate a -f/--file argument into a positional file so GApplication
- * routes it through the open signal. This works uniformly for a fresh launch
- * and for a handoff to an already-running instance. */
+/* Translate a -f/--file argument into a positional file so GApplication routes
+ * it through the open signal. This works uniformly for a fresh launch and for
+ * a handoff to an already-running instance. Every other argument is kept. */
 static gchar** cli_argv_with_file(int argc, char* argv[], int* out_argc)
 {
     for (int i = 1; i < argc; i++)
     {
+        const gchar* arg = argv[i];
         const gchar* file = NULL;
-        if ((strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--file") == 0) && i + 1 < argc)
-            file = argv[i + 1];
-        else if (g_str_has_prefix(argv[i], "--file="))
-            file = argv[i] + strlen("--file=");
+        int consumed = 1;
 
-        if (file != NULL)
+        if (arg == NULL)
+            continue;
+
+        if (strcmp(arg, "-f") == 0 || strcmp(arg, "--file") == 0)
         {
-            gchar** args = g_new(gchar*, 3);
-            args[0] = argv[0];
-            args[1] = (gchar*)file;
-            args[2] = NULL;
-            *out_argc = 2;
-            return args;
+            if (i + 1 >= argc)
+                continue;
+            file = argv[i + 1];
+            consumed = 2;
         }
+        else if (g_str_has_prefix(arg, "--file="))
+        {
+            file = arg + strlen("--file=");
+        }
+
+        if (file == NULL)
+            continue;
+
+        gchar** args = g_new(gchar*, (gsize)argc + 1);
+        int n = 0;
+        for (int j = 0; j < i; j++)
+            args[n++] = argv[j];
+        args[n++] = (gchar*)file;
+        for (int j = i + consumed; j < argc; j++)
+            args[n++] = argv[j];
+        args[n] = NULL;
+        *out_argc = n;
+        return args;
     }
+
     *out_argc = argc;
     return argv;
 }
@@ -39,6 +57,6 @@ int main(int argc, char* argv[])
     g_object_unref(app);
 
     if (run_argv != argv)
-        g_free(run_argv);
+        g_free((void*)run_argv);
     return status;
 }

@@ -24,7 +24,8 @@ struct _MdApp
     GPtrArray* pending_files; /* of gchar*, opened once the window exists */
     GArray* search_matches;   /* of SearchMatch */
     SoupSession* session;
-    gchar* base_dir; /* dir of the currently open file, for image paths */
+    GtkCssProvider* css; /* zoom styling, added once to the screen */
+    gchar* base_dir;     /* dir of the currently open file, for image paths */
     guint image_max_width;
     gint search_index;
     double zoom;
@@ -77,18 +78,17 @@ static void set_placeholder(MdApp* app)
 
 static void apply_zoom(MdApp* app)
 {
-    static GtkCssProvider* provider = NULL;
-    if (provider == NULL)
+    if (app->css == NULL)
     {
-        provider = gtk_css_provider_new();
+        app->css = gtk_css_provider_new();
         gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-                                                  GTK_STYLE_PROVIDER(provider),
+                                                  GTK_STYLE_PROVIDER(app->css),
                                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 
     char css[64];
     g_snprintf(css, sizeof(css), "textview { font-size: %gpt; }", 12.0 * app->zoom);
-    gtk_css_provider_load_from_data(provider, css, -1, NULL);
+    gtk_css_provider_load_from_data(app->css, css, -1, NULL);
 
     char label[16];
     g_snprintf(label, sizeof(label), "%d%%", (int)(app->zoom * 100.0));
@@ -423,7 +423,7 @@ static GtkWidget* headerbar_new(MdApp* app)
     GtkWidget* zoom_in = gtk_button_new_from_icon_name("zoom-in-symbolic", GTK_ICON_SIZE_BUTTON);
     app->zoom_button = gtk_button_new_with_label("100%");
     gtk_widget_set_tooltip_text(zoom_out, "Zoom out (Ctrl+-)");
-    gtk_widget_set_tooltip_text(zoom_in, "Zoom in (Ctrl+=)");
+    gtk_widget_set_tooltip_text(zoom_in, "Zoom in (Ctrl+= or Ctrl++)");
     gtk_widget_set_tooltip_text(app->zoom_button, "Reset zoom (Ctrl+0)");
 
     gtk_header_bar_pack_end(GTK_HEADER_BAR(header), zoom_out);
@@ -586,6 +586,7 @@ static void render_markdown(MdApp* app, const gchar* markdown)
     md_options_set(&opts, MD_FEATURE_GFM_STRIKETHROUGH, TRUE);
     md_options_set(&opts, MD_FEATURE_GFM_TASKLISTS, TRUE);
     md_options_set(&opts, MD_FEATURE_GFM_AUTOLINKS, TRUE);
+    md_options_set(&opts, MD_FEATURE_GFM_RAW_HTML, TRUE);
     MdNode* doc = md_parse(markdown, &opts, &error);
     if (doc == NULL)
     {
@@ -747,9 +748,14 @@ static void md_app_init(MdApp* app)
 static void md_app_dispose(GObject* object)
 {
     MdApp* app = MD_APP(object);
+    /* In-flight image loads hold a borrowed pointer to the session; cancel them
+     * before the session goes away. */
+    if (app->text_view != NULL)
+        md_render_cancel_loads(GTK_TEXT_VIEW(app->text_view));
     g_clear_pointer(&app->pending_files, g_ptr_array_unref);
     g_clear_pointer(&app->search_matches, g_array_unref);
     g_clear_pointer(&app->session, g_object_unref);
+    g_clear_pointer(&app->css, g_object_unref);
     g_clear_pointer(&app->base_dir, g_free);
     G_OBJECT_CLASS(md_app_parent_class)->dispose(object);
 }
@@ -763,12 +769,9 @@ static void md_app_class_init(MdAppClass* klass)
 
 MdApp* md_app_new(void)
 {
-    MdApp* app = g_object_new(MD_TYPE_APP, "application-id", "org.example.mdviewer", "flags",
-                              G_APPLICATION_HANDLES_OPEN, NULL);
-
-    const GOptionEntry entries[] = {
-        {"file", 'f', 0, G_OPTION_ARG_FILENAME, NULL, "Markdown file to open", "FILE"}, {NULL}};
-    g_application_add_main_option_entries(G_APPLICATION(app), entries);
-
-    return app;
+    /* CLI options are handled in main.c: -f/--file is rewritten into a
+     * positional argument so GApplication's open signal covers both a fresh
+     * launch and a handoff to a running instance. */
+    return g_object_new(MD_TYPE_APP, "application-id", "org.example.mdviewer", "flags",
+                        G_APPLICATION_HANDLES_OPEN, NULL);
 }
