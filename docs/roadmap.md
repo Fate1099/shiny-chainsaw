@@ -30,32 +30,32 @@ Flavors:
 
 ## Milestone 2 — CommonMark: block parsing
 
-- [ ] AST scaffold: `MdNode { kind, ... }`, `MdOptions` flags struct
-- [ ] Headings (`#`–`######`)
-- [ ] Paragraphs and hard line breaks
-- [ ] Unordered / ordered lists (incl. nesting)
-- [ ] Fenced and indented code blocks
-- [ ] Blockquotes
-- [ ] Thematic breaks (`---`, `***`)
-- [ ] HTML escaping and raw HTML passthrough policy
-- [ ] CommonMark `spec.txt` conformance harness wired into `meson test`
+- [x] AST scaffold: `MdNode { kind, ... }`, `MdOptions` flags struct
+- [x] Headings (`#`–`######`)
+- [x] Paragraphs and hard line breaks
+- [x] Unordered / ordered lists (incl. nesting)
+- [x] Fenced and indented code blocks
+- [x] Blockquotes
+- [x] Thematic breaks (`---`, `***`)
+- [x] HTML escaping and raw HTML passthrough policy
+- [x] CommonMark `spec.txt` conformance harness wired into `meson test`
 
 ## Milestone 3 — CommonMark: inline parsing
 
-- [ ] Bold / italic / code spans
-- [ ] Links and images
-- [ ] Entity refs and character escapes
-- [ ] CommonMark conformance green on the inline sections
+- [x] Bold / italic / code spans
+- [x] Links and images
+- [x] Entity refs and character escapes
+- [x] CommonMark conformance green on the inline sections
 
 ## Milestone 4 — GFM extensions
 
-- [ ] Strikethrough
-- [ ] Fenced-code language tags
-- [ ] Autolinks (www, email)
-- [ ] Tables
-- [ ] Task lists
-- [ ] Raw-HTML filtering policy
-- [ ] GFM `spec.txt` conformance harness
+- [x] Strikethrough
+- [x] Fenced-code language tags
+- [x] Autolinks (www, email)
+- [x] Tables
+- [x] Task lists
+- [x] Raw-HTML filtering policy
+- [x] GFM `spec.txt` conformance harness
 
 ## Milestone 5 — Markdown Extra extensions
 
@@ -68,16 +68,16 @@ Flavors:
 
 ## Milestone 6 — Rendering
 
-- [ ] Renderer walks AST → HTML
-- [ ] Render parser HTML into `GtkTextBuffer` with Pango markup
-- [ ] Syntax-aware styling for code blocks
-- [ ] CSS-driven theme via GResource (`data/`)
+- [x] Renderer walks AST → HTML
+- [x] Render parser HTML into `GtkTextBuffer` with Pango markup
+- [x] Syntax-aware styling for code blocks
+- [x] CSS-driven theme via GResource (`data/`)
 
 ## Milestone 7 — UX
 
-- [ ] File open dialog + CLI arg
+- [x] File open dialog + CLI arg
 - [ ] Recent files
-- [ ] Keyboard shortcuts (Ctrl+O, Ctrl+R, quit)
+- [x] Keyboard shortcuts (open, search, sidebar, zoom, quit)
 - [ ] Live reload on file change
 
 ## Design notes

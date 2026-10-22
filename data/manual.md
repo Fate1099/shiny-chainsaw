@@ -13,14 +13,14 @@ around, **Ctrl+F** to search, and **Ctrl+=** / **Ctrl+-** to zoom.
 
 ### Keyboard shortcuts
 
-| Key       | Action                |
-|-----------|------------------------|
-| Ctrl+O    | Open a file            |
-| Ctrl+F    | Search                 |
-| Ctrl+=    | Zoom in                |
-| Ctrl+-    | Zoom out               |
-| Ctrl+0    | Reset zoom             |
-| F9        | Toggle the sidebar     |
+| Key              | Action                |
+|------------------|-----------------------|
+| Ctrl+O           | Open a file           |
+| Ctrl+F           | Search                |
+| Ctrl+= or Ctrl++ | Zoom in               |
+| Ctrl+-           | Zoom out              |
+| Ctrl+0           | Reset zoom            |
+| F9               | Toggle the sidebar    |
 
 ## Features
 
