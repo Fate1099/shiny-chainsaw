@@ -54,7 +54,7 @@ glib-compile-schemas %{_datadir}/glib-2.0/schemas &> /dev/null || :
 %{_datadir}/applications/io.github.Fate1099.shiny-chainsaw.desktop
 %{_datadir}/icons/hicolor/scalable/apps/io.github.Fate1099.shiny-chainsaw.svg
 %{_datadir}/glib-2.0/schemas/io.github.Fate1099.shiny-chainsaw.gschema.xml
-%{_mandir}/man1/shiny-chainsaw.1
+%{_mandir}/man1/shiny-chainsaw.1*
 
 %changelog
 * Fri Oct 23 2026 jimipohlers <jimipohlers@outlook.de> - 0.1.0-1

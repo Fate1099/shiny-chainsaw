@@ -12,6 +12,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Tag matches the project version
+        run: |
+          version="$(sed -n "s/^[[:space:]]*version:[[:space:]]*'\([^']*\)'.*/\1/p" meson.build | head -1)"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "error: tag $GITHUB_REF_NAME does not match meson.build version '$version'" >&2
+            exit 1
+          fi
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -49,7 +58,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rpm
-          path: dist/rpmbuild/RPMS/**/*.rpm
+          path: |
+            dist/rpmbuild/RPMS/x86_64/shiny-chainsaw-*.rpm
+            dist/rpmbuild/SRPMS/*.src.rpm
 
   # One job per Debian release, debhelper's native Meson buildsystem.
   deb:
@@ -71,7 +82,7 @@ jobs:
       - name: Build .deb
         run: |
           dpkg-buildpackage -b -uc -us
-          cp ../*.deb "$GITHUB_WORKSPACE"
+          cp ../shiny-chainsaw_*.deb "$GITHUB_WORKSPACE"
 
       - name: Upload .deb
         uses: actions/upload-artifact@v4

@@ -13,3 +13,4 @@ build-rpm/
 debian/.debhelper/
 debian/debhelper-build-stamp
 debian/shiny-chainsaw/
+obj-*/
