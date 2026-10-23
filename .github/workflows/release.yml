@@ -41,7 +41,7 @@ jobs:
   # Fedora container: rpmbuild plus the %meson macros from redhat-rpm-config.
   rpm:
     runs-on: ubuntu-latest
-    container: fedora:41
+    container: fedora:44
     steps:
       - uses: actions/checkout@v4
 

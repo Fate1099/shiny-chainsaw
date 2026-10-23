@@ -144,7 +144,7 @@ must be bumped together with `meson.build` and the RPM spec.
 ### Releases
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`: it builds the source
-tarball with `meson dist`, the RPMs in a `fedora:41` container, and `.deb`s in
+tarball with `meson dist`, the RPMs in a `fedora:44` container, and `.deb`s in
 `debian:12` and `debian:13` containers, then attaches everything to a GitHub
 Release. `ci.yml` only runs on pushes to `main` and pull requests.
 
