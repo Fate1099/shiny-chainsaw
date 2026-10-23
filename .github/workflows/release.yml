@@ -109,6 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -123,9 +124,24 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "Shiny Chainsaw $GITHUB_REF_NAME" \
-              --verify-tag \
               --generate-notes \
-              $files
+              $files 2> release-error.txt
+          fi
+        continue-on-error: true
+
+      # If the release still does not exist, publish the error as an issue so it
+      # is readable without signing in to the Actions log.
+      - name: Report a failure
+        if: always()
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh api -X POST "/repos/$GITHUB_REPOSITORY/issues" \
+              -f title="release job failed for $GITHUB_REF_NAME" \
+              -f body="gh release create returned:
+
+            ```
+            $(cat release-error.txt)
+            ```"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
