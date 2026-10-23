@@ -1,0 +1,48 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc meson ninja-build \
+            libgtk-3-dev libsoup-3.0-dev \
+            clang-format clang-tidy \
+            valgrind xvfb
+
+      - name: Configure
+        run: meson setup build
+
+      - name: Build
+        run: meson compile -C build
+
+      # The render suite needs a display; xvfb provides one so it runs instead
+      # of printing "skipped".
+      - name: Test
+        run: xvfb-run -a meson test -C build --print-errorlogs
+
+      - name: Lint
+        run: meson compile -C build lint
+
+      # Headless suites only: they are the ones valgrind can cover without GTK
+      # thread pools showing up as "possibly lost".
+      - name: Valgrind (parser, conformance, robustness)
+        run: |
+          valgrind --leak-check=full --error-exitcode=1 \
+            ./build/tests/test_parser
+          valgrind --leak-check=full --error-exitcode=1 \
+            ./build/tests/spec_tests tests/spec/commonmark.txt commonmark
+          valgrind --leak-check=full --error-exitcode=1 \
+            ./build/tests/spec_tests tests/spec/gfm.txt gfm
+          valgrind --leak-check=full --error-exitcode=1 \
+            ./build/tests/test_robustness

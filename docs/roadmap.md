@@ -87,7 +87,7 @@ Flavors:
 
 - [x] Conformance suites run in the RPM build (they are green, so they no
       longer need to be skipped)
-- [ ] CI: build, every test suite, lint, valgrind; render suite under `xvfb`
+- [x] CI: build, every test suite, lint, valgrind; render suite under `xvfb`
 - [x] Robustness suite: truncated, deeply nested, and malformed input under
       valgrind
 - [x] Generated CommonMark fixture (`scripts/gen-commonmark-spec.py`) instead of

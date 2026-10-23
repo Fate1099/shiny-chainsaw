@@ -1,5 +1,7 @@
 # md-viewer
 
+[![build](https://github.com/Fate1099/shiny-chainsaw/actions/workflows/ci.yml/badge.svg)](https://github.com/Fate1099/shiny-chainsaw/actions/workflows/ci.yml)
+
 A **pure, lightweight Markdown viewer** written in **C** with **GTK3** and the
 **Meson** build system. It has no runtime dependency on external Markdown
 renderers — the parser lives in-repo and is implemented in pure C.
