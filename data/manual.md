@@ -9,7 +9,9 @@ the parser.
 ## Quick start
 
 Open a Markdown file with **Ctrl+O** or drag it in. Use the sidebar to jump
-around, **Ctrl+F** to search, and **Ctrl+=** / **Ctrl+-** to zoom.
+around, **Ctrl+F** to search, and **Ctrl+=** / **Ctrl+-** to zoom. The view
+follows the file: when it changes on disk it is re-rendered, and *Open recent*
+in the menu lists the last ten files.
 
 ### Keyboard shortcuts
 
@@ -17,6 +19,7 @@ around, **Ctrl+F** to search, and **Ctrl+=** / **Ctrl+-** to zoom.
 |------------------|-----------------------|
 | Ctrl+O           | Open a file           |
 | Ctrl+F           | Search                |
+| Ctrl+R           | Reload the open file  |
 | Ctrl+= or Ctrl++ | Zoom in               |
 | Ctrl+-           | Zoom out              |
 | Ctrl+0           | Reset zoom            |

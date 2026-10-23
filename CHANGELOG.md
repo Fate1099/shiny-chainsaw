@@ -76,6 +76,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Live reload: the open file is watched with a `GFileMonitor` and re-rendered
+  when it changes on disk. Saves that rewrite identical content are ignored, a
+  burst of events is collapsed into one reload (200 ms debounce), the scroll
+  position is restored, and the current search query is re-run. "Reload file"
+  in the menu, `Ctrl+R`.
+- Recent files: `src/recent.c` keeps the ten most recently opened paths, one per
+  line, in `<XDG config dir>/md-viewer/recent.txt`. The header-bar menu has an
+  "Open recent" submenu; opening a file moves it to the front of the list.
+- `tests/test_recent.c` (suite `unit`) exercises the recent list: ordering,
+  deduplication, truncation, and the round trip through the file.
+- `tests/test_live_reload.c` (suite `render`) drives the real `GtkApplication`
+  and asserts that the monitor reloads, that the recent list is written, and
+  that `open-recent` and the reload action work. It needs a display and skips
+  itself without one.
+- The shortcut table in `src/shortcuts.c` now carries an argument type, so an
+  action can take a value (`open-recent` takes the path of the file to open).
 - `scripts/gen-commonmark-spec.py`, which regenerates `tests/spec/commonmark.txt`
   from the pinned CommonMark 0.31.2 spec source instead of relying on a hand
   copied file. The fixture is byte identical to the upstream `spec.txt`.
@@ -163,6 +179,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Planned
 
 - Markdown Extra extensions (definition lists, footnotes, abbreviations)
-- CommonMark `spec.txt` conformance harness
-- Live reload on file change
-- Recent files
+- A CSS theme file in `data/`
+- Tagged releases, with `CHANGELOG.md` versioned and `meson.build` /
+  `packaging/md-viewer.spec` kept in step

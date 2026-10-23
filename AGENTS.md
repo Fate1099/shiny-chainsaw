@@ -58,6 +58,17 @@ The `render` suite (`test_render`) drives `md_render_to_buffer` against a
 prints `skipped` plus exit 0 when `gtk_init_check()` fails, so headless runs do
 not fail.
 
+The `unit` suite also covers `src/recent.c` (`test_recent`): ordering,
+deduplication, truncation at `MD_RECENT_MAX`, and the round trip through the
+list file. `src/recent.c` is GLib only, so it runs without a display.
+
+`test_live_reload` (suite `render`) drives the real `GtkApplication`: it
+registers under a test-only application id, activates, opens a file, rewrites
+it, and asserts that the monitor re-renders, that the recent list is written,
+and that the `open-recent` action and `md_app_reload` work. It points
+`XDG_CONFIG_HOME` at a temporary directory so it never touches the developer's
+recent-file list, and skips itself without a display.
+
 ## Lint
 
 ```sh
@@ -81,8 +92,12 @@ meson compile -C build lint
   window, read-only `GtkTextView`, sidebar, search, zoom.
 - `src/parser.c` — pure Markdown → AST (`MdNode`) plus `md_render_html()`; GLib only.
 - `src/render.c` — AST → `GtkTextBuffer` with Pango markup, image loading via libsoup.
+- `src/recent.c` — the recently opened files: read/add/write of one path per line
+  in `<XDG config dir>/md-viewer/recent.txt`, most recent first, capped at
+  `MD_RECENT_MAX`. GLib only, so it is testable headlessly.
 - `src/shortcuts.c` — one table (`SHORTCUTS[]`) registers every app action and accel;
-  add shortcuts there, not ad hoc.
+  add shortcuts there, not ad hoc. Each row can carry an argument type (e.g.
+  `open-recent` takes a path), so menu items can pass a target to their action.
 
 **Pure core**: `parser.c`/`parser.h` must never include GTK headers. Parsing is
 GLib-only; GTK touches only `app.c`/`render.c`. Breaking this breaks the headless
@@ -111,8 +126,8 @@ header but are unimplemented.
 Requires `rpmbuild` and the `%meson` macros (`redhat-rpm-config`). The script fails
 if `Version:` in `packaging/md-viewer.spec` does not match `version:` in
 `meson.build` — bump both together. It builds a separate release build in
-`build-rpm/` and runs every suite, conformance included; the render suite skips
-itself in the headless build environment.
+`build-rpm/` and runs every suite, conformance included; the render and
+live-reload suites skip themselves in the headless build environment.
 
 ## Conventions
 
@@ -134,6 +149,7 @@ CommonMark block/inline parsing and the AST satisfy the vendored spec suites
 (glyph-width aligned), strikethrough, task lists, autolinks (bare `www.`,
 `http://`, `ftp://`, e-mail, `mailto:`/`xmpp:`), GFM raw-HTML grammar and the
 disallowed-raw-HTML filter, HTML comments (passed through as raw HTML), image
-rendering, file open/search/zoom/shortcuts. Not implemented: Markdown Extra,
-live reload.
+rendering, file open/search/zoom/shortcuts, live reload of the open file, and a
+recent-files list persisted in the user config dir. Not implemented: Markdown
+Extra.
 Details: `docs/roadmap.md`, `docs/design-notes.md`, `CHANGELOG.md`.

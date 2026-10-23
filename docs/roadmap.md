@@ -79,9 +79,9 @@ Flavors:
 ## Milestone 7 — UX
 
 - [x] File open dialog + CLI arg
-- [ ] Recent files
+- [x] Recent files (menu submenu, persisted in the user config dir)
 - [x] Keyboard shortcuts (open, search, sidebar, zoom, quit)
-- [ ] Live reload on file change
+- [x] Live reload on file change
 
 ## Milestone 8 — Release engineering
 
