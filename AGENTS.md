@@ -4,7 +4,7 @@ Guidance for AI agents and contributors working in this repository.
 
 ## Project
 
-`shiny-chainsaw` is a lightweight Markdown viewer in **C** with **GTK3** and Meson.
+Shiny Chainsaw is a lightweight Markdown viewer in **C** with **GTK3** and Meson.
 The Markdown parser is implemented in-repo (no external renderer). CI is GitHub
 Actions (`.github/workflows/ci.yml`): configure, build, every test suite under
 `xvfb`, lint, and valgrind on the headless suites.

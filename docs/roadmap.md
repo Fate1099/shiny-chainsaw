@@ -4,7 +4,7 @@ Tracked against the checklist in `AGENTS.md`.
 
 ## Scope
 
-`shiny-chainsaw` targets a **single superset spec with feature flags**, not three
+Shiny Chainsaw targets a **single superset spec with feature flags**, not three
 separate parsers. The core is **CommonMark**; **GFM** and **Markdown Extra**
 are layered on as extension flags. One AST + one renderer serves all flavors —
 differences live only in what the parser produces.
