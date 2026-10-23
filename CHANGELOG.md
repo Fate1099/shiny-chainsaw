@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Planned
+
+- Markdown Extra extensions (definition lists, footnotes, abbreviations)
+- A CSS theme file in `data/`
+- A Flatpak manifest for Flathub, now that the application id is a
+  reverse-DNS one
+
+## [0.1.0] - 2026-10-23
+
 ### Fixed
 
 - The RPM build no longer skips the conformance suite. `packaging/build-rpm.sh`
@@ -150,6 +159,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   parser test suite (79 cases).
 - RPM packaging pipeline (`packaging/shiny-chainsaw.spec` + `build-rpm.sh`) that
   builds a release, runs the tests, and produces/installs an RPM.
+- Debian packaging in `debian/`: debhelper ≥ 12 drives Meson directly, so
+  `dpkg-buildpackage -b -uc -us` builds the package with no Makefile shim.
+- `.github/workflows/release.yml`: a `v*` tag builds the source tarball, RPMs in
+  a Fedora container, and `.deb`s for Debian 12 and Debian 13, and attaches them
+  to a GitHub Release.
 
 ### Fixed
 
@@ -176,9 +190,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `text/markdown` MIME handling, an SVG icon, and
   `update-desktop-database`/`gtk-update-icon-cache` post scripts.
 
-### Planned
-
-- Markdown Extra extensions (definition lists, footnotes, abbreviations)
-- A CSS theme file in `data/`
-- Tagged releases, with `CHANGELOG.md` versioned and `meson.build` /
-  `packaging/shiny-chainsaw.spec` kept in step
+[Unreleased]: https://github.com/Fate1099/shiny-chainsaw/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Fate1099/shiny-chainsaw/releases/tag/v0.1.0

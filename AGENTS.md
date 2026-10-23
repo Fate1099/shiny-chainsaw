@@ -116,7 +116,9 @@ header but are unimplemented.
   back to `0` (auto-fit images) rather than erroring.
 - `build/`, `build-rpm/`, `dist/`, `meson-dist/` are generated and gitignored.
 
-## RPM packaging
+## Packaging
+
+### RPM
 
 ```sh
 ./packaging/build-rpm.sh            # RPMs into dist/rpmbuild/
@@ -128,6 +130,23 @@ if `Version:` in `packaging/shiny-chainsaw.spec` does not match `version:` in
 `meson.build` — bump both together. It builds a separate release build in
 `build-rpm/` and runs every suite, conformance included; the render and
 live-reload suites skip themselves in the headless build environment.
+
+### Debian
+
+```sh
+dpkg-buildpackage -b -uc -us       # .deb beside the source tree
+```
+
+`debian/rules` uses debhelper's Meson buildsystem (debhelper ≥ 12, so Debian 12
+and 13 both work). `debian/changelog` carries the release version and date and
+must be bumped together with `meson.build` and the RPM spec.
+
+### Releases
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`: it builds the source
+tarball with `meson dist`, the RPMs in a `fedora:41` container, and `.deb`s in
+`debian:12` and `debian:13` containers, then attaches everything to a GitHub
+Release. `ci.yml` only runs on pushes to `main` and pull requests.
 
 ## Conventions
 

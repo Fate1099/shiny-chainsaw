@@ -92,8 +92,13 @@ Flavors:
       valgrind
 - [x] Generated CommonMark fixture (`scripts/gen-commonmark-spec.py`) instead of
       a hand-copied one
-- [ ] Tagged releases, with `CHANGELOG.md` versioned and `meson.build` /
-      `packaging/shiny-chainsaw.spec` kept in step
+- [x] Debian packaging in `debian/` (debhelper's Meson buildsystem), built for
+      Debian 12 and Debian 13
+- [x] Tagged releases: a `v*` tag runs `.github/workflows/release.yml`, which
+      builds the source tarball, the RPMs and the `.deb`s and attaches them to a
+      GitHub Release
+- [ ] Flatpak manifest for Flathub; the reverse-DNS application id is in place,
+      the manifest, MetaInfo and screenshots are not
 
 ## Design notes
 

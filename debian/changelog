@@ -1,0 +1,6 @@
+shiny-chainsaw (0.1.0-1) unstable; urgency=low
+
+  * First packaged release: CommonMark and GFM rendering, live reload of the
+    open file, recent-file list, and image loading through libsoup3.
+
+ -- jimipohlers <jimipohlers@outlook.de>  Fri, 23 Oct 2026 13:33:25 +0000

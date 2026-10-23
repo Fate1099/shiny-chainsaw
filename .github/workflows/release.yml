@@ -1,0 +1,98 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  # meson dist produces the tarball that both packaging routes consume.
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            meson ninja-build libgtk-3-dev libsoup-3.0-dev
+
+      - name: Dist
+        run: |
+          meson setup build
+          meson dist -C build
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: build/meson-dist/*.tar.xz
+
+  # Fedora container: rpmbuild plus the %meson macros from redhat-rpm-config.
+  rpm:
+    runs-on: ubuntu-latest
+    container: fedora:41
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            git rpm-build redhat-rpm-config \
+            meson ninja gcc gtk3-devel libsoup3-devel desktop-file-utils
+
+      - name: Build RPMs
+        run: ./packaging/build-rpm.sh
+
+      - name: Upload RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: dist/rpmbuild/RPMS/**/*.rpm
+
+  # One job per Debian release, debhelper's native Meson buildsystem.
+  deb:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        debian: ["12", "13"]
+    container: debian:${{ matrix.debian }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            debhelper meson ninja-build pkg-config \
+            libgtk-3-dev libsoup-3.0-dev
+
+      - name: Build .deb
+        run: |
+          dpkg-buildpackage -b -uc -us
+          cp ../*.deb "$GITHUB_WORKSPACE"
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-debian-${{ matrix.debian }}
+          path: shiny-chainsaw_*.deb
+
+  release:
+    needs: [source, rpm, deb]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create the release
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Shiny Chainsaw $GITHUB_REF_NAME" \
+            --generate-notes \
+            $(find artifacts -type f)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

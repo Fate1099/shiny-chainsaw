@@ -1,0 +1,7 @@
+#!/usr/bin/make -f
+# Debhelper 12 and newer know how to drive Meson + Ninja directly, so no
+# Makefile shim is needed.
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@ --buildsystem=meson

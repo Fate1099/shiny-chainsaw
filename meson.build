@@ -33,5 +33,8 @@ install_data('data/icons/io.github.Fate1099.shiny-chainsaw.svg',
 install_data('data/io.github.Fate1099.shiny-chainsaw.gschema.xml',
   install_dir: get_option('datadir') / 'glib-2.0' / 'schemas')
 
+install_data('man/shiny-chainsaw.1',
+  install_dir: get_option('mandir') / 'man1')
+
 subdir('src')
 subdir('tests')

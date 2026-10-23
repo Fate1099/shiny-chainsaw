@@ -55,10 +55,9 @@ and print `skipped` (exit 0) when one is not available.
 `lint` needs `clang-format` and/or `clang-tidy`; whichever is missing is
 skipped rather than failing the build.
 
-## Package (RPM)
+## Packages
 
-Build and install an RPM for Fedora-style distros (requires `rpmbuild`, the
-`meson` and `ninja-build` packages, and the `%meson` RPM macros from
+**RPM** (Fedora-style; needs `rpmbuild` and the `%meson` RPM macros from
 `redhat-rpm-config`):
 
 ```sh
@@ -66,9 +65,20 @@ Build and install an RPM for Fedora-style distros (requires `rpmbuild`, the
 ./packaging/build-rpm.sh install    # build and sudo dnf install
 ```
 
-The script validates the version matches `meson.build`, builds + tests a
+The script validates the version matches `meson.build`, builds and tests a
 release build, archives the source with `meson dist`, and feeds it to
 `rpmbuild`. See `packaging/shiny-chainsaw.spec`.
+
+**Debian** (debhelper ≥ 12 drives Meson directly, so there is no Makefile
+shim; `debian/` holds the packaging):
+
+```sh
+dpkg-buildpackage -b -uc -us        # .deb beside the source tree
+```
+
+Tagged releases run `.github/workflows/release.yml`, which builds the source
+tarball, the RPMs (Fedora container) and the `.deb`s (Debian 12 and 13
+containers) and attaches them all to a GitHub Release.
 
 ## Project layout
 
@@ -77,6 +87,8 @@ release build, archives the source with `meson dist`, and feeds it to
 - `data/`   — GLib resources (bundled manual), desktop file, GSettings schema
 - `docs/`   — design notes and roadmap
 - `scripts/`— lint target and the generators for the spec fixtures and entity table
+- `packaging/` — RPM spec and the script that builds it
+- `debian/`  — debhelper packaging for `.deb` builds
 
 ## Status
 

@@ -1,0 +1,24 @@
+Source: shiny-chainsaw
+Section: editors
+Priority: optional
+Maintainer: jimipohlers <jimipohlers@outlook.de>
+Build-Depends:
+ debhelper (>= 12),
+ meson (>= 0.63),
+ ninja-build,
+ pkg-config,
+ libgtk-3-dev (>= 3.24),
+ libsoup-3.0-dev
+Standards-Version: 4.6.0
+Rules-Requires-Root: no
+
+Package: shiny-chainsaw
+Section: editors
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: lightweight Markdown viewer for technical docs
+ Shiny Chainsaw is a Markdown viewer written in C with GTK3. The Markdown
+ parser is implemented in the source tree, so rendering does not depend on an
+ external Markdown library. Tables, task lists, strikethrough, autolinks and
+ the GFM raw-HTML grammar are supported; the open file re-renders when it
+ changes on disk.

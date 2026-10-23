@@ -1,0 +1,53 @@
+.TH SHINY-CHAINSAW 1 "2026-10-23" "Shiny Chainsaw 0.1.0" "User Commands"
+.SH NAME
+shiny-chainsaw \- lightweight Markdown viewer for technical docs
+.SH SYNOPSIS
+.B shiny-chainsaw
+.RB [ -f | --file ]
+.IR file
+.SH DESCRIPTION
+Shiny Chainsaw renders a Markdown file in a GTK3 window. Parsing is done by a
+CommonMark parser implemented in the program itself; the GFM extensions (tables,
+task lists, strikethrough, autolinks and the raw-HTML filter) are enabled. Images
+are fetched over the network with libsoup3 or read from disk, and the open file is
+re-rendered whenever it changes on disk.
+.PP
+With no argument a file picker is shown.
+.SH OPTIONS
+.TP
+.B -f, --file \fIfile\fR
+Open
+.IR file
+on startup. A file given without the flag works the same way.
+.SH SHORTCUTS
+.TP
+.B Ctrl+O
+Open a file.
+.TP
+.B Ctrl+F
+Search the document.
+.TP
+.B F9
+Toggle the heading outline sidebar.
+.TP
+.B Ctrl+=, Ctrl++, Ctrl+\-, Ctrl+0
+Zoom in, zoom in, zoom out, reset zoom.
+.TP
+.B Ctrl+R
+Reload the open file.
+.SH FILES
+.TP
+.B $XDG_CONFIG_HOME/shiny-chainsaw/recent.txt
+The ten most recently opened files, most recent first.
+.SH SETTINGS
+The
+.B image-max-width
+key (GSettings schema
+.BR io.github.Fate1099.shiny-chainsaw )
+caps the width of rendered images in pixels. The default, 0, fits images to the
+window width without upscaling them. The schema is only read once it is installed
+system-wide, so running the program from a build directory falls back to 0.
+.SH SEE ALSO
+.BR markdown (7)
+.SH AUTHOR
+Written by jimipohlers, released under the MIT license.
