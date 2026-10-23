@@ -51,8 +51,26 @@ jobs:
             git rpm-build redhat-rpm-config \
             meson ninja gcc gtk3-devel libsoup3-devel desktop-file-utils
 
-      - name: Build RPMs
-        run: ./packaging/build-rpm.sh
+      # Same pipeline as packaging/build-rpm.sh, split into steps so a failure
+      # names the stage that broke instead of a single opaque exit code.
+      - name: Release build
+        run: |
+          meson setup build-rpm --buildtype=release
+          meson compile -C build-rpm
+
+      - name: Test
+        run: meson test -C build-rpm --print-errorlogs
+
+      - name: Source archive
+        run: meson dist -C build-rpm --no-tests --allow-dirty
+
+      - name: rpmbuild
+        run: |
+          mkdir -p dist/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cp build-rpm/meson-dist/shiny-chainsaw-*.tar.xz dist/rpmbuild/SOURCES/
+          cp packaging/shiny-chainsaw.spec dist/rpmbuild/SPECS/
+          rpmbuild --define "_topdir $(pwd)/dist/rpmbuild" \
+            -ba dist/rpmbuild/SPECS/shiny-chainsaw.spec
 
       - name: Upload RPMs
         uses: actions/upload-artifact@v4
