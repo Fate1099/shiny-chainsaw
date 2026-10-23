@@ -88,10 +88,10 @@ Flavors:
 - [x] Conformance suites run in the RPM build (they are green, so they no
       longer need to be skipped)
 - [ ] CI: build, every test suite, lint, valgrind; render suite under `xvfb`
-- [ ] Robustness suite: truncated, deeply nested, and malformed input under
-      ASAN/UBSAN
-- [ ] Generated CommonMark fixture (`scripts/gen-commonmark-spec.py`) instead of
-      a hand-transformed one
+- [x] Robustness suite: truncated, deeply nested, and malformed input under
+      valgrind
+- [x] Generated CommonMark fixture (`scripts/gen-commonmark-spec.py`) instead of
+      a hand-copied one
 - [ ] Tagged releases, with `CHANGELOG.md` versioned and `meson.build` /
       `packaging/md-viewer.spec` kept in step
 

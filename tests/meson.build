@@ -11,8 +11,17 @@ foreach name, sources : tests
     include_directories: include_directories('../src'),
     dependencies: [test_dep],
   )
-  test(name, test_exe)
+  test(name, test_exe, suite: 'unit')
 endforeach
+
+robustness_test = executable(
+  'test_robustness',
+  sources: ['test_robustness.c', '../src/parser.c'],
+  include_directories: include_directories('../src'),
+  dependencies: [test_dep],
+)
+
+test('robustness', robustness_test, suite: 'robustness')
 
 spec_tests = executable(
   'spec_tests',

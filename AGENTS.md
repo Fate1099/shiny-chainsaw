@@ -37,9 +37,19 @@ spec (`example autolink`, `example table`, `example strikethrough`,
 features for that example. GFM core (the raw-HTML grammar) is always on in
 `gfm` mode. Regenerate the file with `python3 scripts/gen-gfm-spec.py`.
 
+`tests/spec/commonmark.txt` is CommonMark 0.31.2 `spec.txt` byte for byte — the
+spec source already uses the 32-backtick fences the harness reads. Regenerate it
+with `python3 scripts/gen-commonmark-spec.py` (optionally `--version 0.31.2`)
+rather than editing it by hand.
+
 Parser tests are plain asserts, table-driven: feed raw Markdown, assert on emitted
 HTML. Every test binary compiles `src/parser.c` directly — hence the pure-core rule
 below.
+
+The `robustness` suite (`test_robustness`) feeds truncated, deeply nested, and
+invalid-UTF-8 input through the parser and asserts it neither crashes nor leaks.
+Bounds-related regressions (a line shorter than the container indent, a task
+marker cut off at end of line) belong there.
 
 The `render` suite (`test_render`) drives `md_render_to_buffer` against a
 `GtkTextView` and asserts on the buffer text. It needs a display connection and

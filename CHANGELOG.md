@@ -76,6 +76,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `scripts/gen-commonmark-spec.py`, which regenerates `tests/spec/commonmark.txt`
+  from the pinned CommonMark 0.31.2 spec source instead of relying on a hand
+  copied file. The fixture is byte identical to the upstream `spec.txt`.
+- `tests/test_robustness.c`, a robustness suite (suite `robustness`) that runs
+  truncated constructs, 100k-character lines, 2000-level nesting, 400-column
+  tables, and invalid UTF-8 through the parser under valgrind.
+
 - `tests/test_render.c`, a render smoke test (suite `render`) that checks the
   buffer text the app actually shows: headings with their tag, raw HTML blocks
   and inline tags, aligned tables, task-list glyphs, code, blockquotes, and
