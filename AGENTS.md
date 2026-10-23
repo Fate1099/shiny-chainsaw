@@ -4,7 +4,7 @@ Guidance for AI agents and contributors working in this repository.
 
 ## Project
 
-`md-viewer` is a lightweight Markdown viewer in **C** with **GTK3** and Meson.
+`shiny-chainsaw` is a lightweight Markdown viewer in **C** with **GTK3** and Meson.
 The Markdown parser is implemented in-repo (no external renderer). CI is GitHub
 Actions (`.github/workflows/ci.yml`): configure, build, every test suite under
 `xvfb`, lint, and valgrind on the headless suites.
@@ -14,7 +14,7 @@ Actions (`.github/workflows/ci.yml`): configure, build, every test suite under
 ```sh
 meson setup build
 ninja -C build
-./build/src/md-viewer -f path/to/file.md   # or no arg -> file picker
+./build/src/shiny-chainsaw -f path/to/file.md   # or no arg -> file picker
 ```
 
 Reconfigure after adding sources: `meson setup --reconfigure build`.
@@ -88,12 +88,12 @@ meson compile -C build lint
 - `src/main.c` — translates `-f`/`--file` into a positional argument so
   GApplication's `open` signal handles it (works both for a fresh launch and for
   a handoff to an already-running instance).
-- `src/app.c` — `GtkApplication` (`org.example.mdviewer`, `G_APPLICATION_HANDLES_OPEN`),
+- `src/app.c` — `GtkApplication` (`io.github.Fate1099.shiny-chainsaw`, `G_APPLICATION_HANDLES_OPEN`),
   window, read-only `GtkTextView`, sidebar, search, zoom.
 - `src/parser.c` — pure Markdown → AST (`MdNode`) plus `md_render_html()`; GLib only.
 - `src/render.c` — AST → `GtkTextBuffer` with Pango markup, image loading via libsoup.
 - `src/recent.c` — the recently opened files: read/add/write of one path per line
-  in `<XDG config dir>/md-viewer/recent.txt`, most recent first, capped at
+  in `<XDG config dir>/shiny-chainsaw/recent.txt`, most recent first, capped at
   `MD_RECENT_MAX`. GLib only, so it is testable headlessly.
 - `src/shortcuts.c` — one table (`SHORTCUTS[]`) registers every app action and accel;
   add shortcuts there, not ad hoc. Each row can carry an argument type (e.g.
@@ -111,7 +111,7 @@ header but are unimplemented.
 
 ## Environment quirks
 
-- The GSettings schema (`data/org.example.mdviewer.gschema.xml`) is only usable after
+- The GSettings schema (`data/io.github.Fate1099.shiny-chainsaw.gschema.xml`) is only usable after
   install. Run from `build/` without installing and `image-max-width` silently falls
   back to `0` (auto-fit images) rather than erroring.
 - `build/`, `build-rpm/`, `dist/`, `meson-dist/` are generated and gitignored.
@@ -124,7 +124,7 @@ header but are unimplemented.
 ```
 
 Requires `rpmbuild` and the `%meson` macros (`redhat-rpm-config`). The script fails
-if `Version:` in `packaging/md-viewer.spec` does not match `version:` in
+if `Version:` in `packaging/shiny-chainsaw.spec` does not match `version:` in
 `meson.build` — bump both together. It builds a separate release build in
 `build-rpm/` and runs every suite, conformance included; the render and
 live-reload suites skip themselves in the headless build environment.

@@ -56,7 +56,7 @@ G_DEFINE_TYPE(MdApp, md_app, GTK_TYPE_APPLICATION)
 /* Default content: the bundled manual (doubles as a parser torture test) */
 /* ------------------------------------------------------------------ */
 
-#define MD_MANUAL_RESOURCE "/org/example/mdviewer/manual.md"
+#define MD_MANUAL_RESOURCE "/io/github/Fate1099/shiny-chainsaw/manual.md"
 
 static void render_markdown(MdApp* app, const gchar* markdown);
 
@@ -68,7 +68,7 @@ static void set_placeholder(MdApp* app)
     if (bytes == NULL)
     {
         gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->text_view)),
-                                 "md-viewer\n\n(manual resource not found)", -1);
+                                 "shiny-chainsaw\n\n(manual resource not found)", -1);
         return;
     }
 
@@ -381,7 +381,7 @@ static void record_recent_file(MdApp* app, const gchar* path)
     GError* error = NULL;
     if (!md_recent_write(app->recent_path, app->recent_files, &error))
     {
-        g_printerr("md-viewer: recent files not saved: %s\n",
+        g_printerr("shiny-chainsaw: recent files not saved: %s\n",
                    error != NULL ? error->message : "unknown");
         g_clear_error(&error);
     }
@@ -419,7 +419,7 @@ static void start_file_monitor(MdApp* app, const gchar* path)
     if (app->file_monitor != NULL)
         g_signal_connect(app->file_monitor, "changed", G_CALLBACK(on_file_changed), app);
     else
-        g_printerr("md-viewer: live reload unavailable for %s\n", path);
+        g_printerr("shiny-chainsaw: live reload unavailable for %s\n", path);
 }
 
 static gboolean reload_timeout(gpointer user_data)
@@ -465,7 +465,8 @@ static void reload_current_file(MdApp* app)
     GError* error = NULL;
     if (!g_file_get_contents(app->current_path, &contents, NULL, &error))
     {
-        g_printerr("md-viewer: reload failed: %s\n", error != NULL ? error->message : "unknown");
+        g_printerr("shiny-chainsaw: reload failed: %s\n",
+                   error != NULL ? error->message : "unknown");
         g_clear_error(&error);
         return;
     }
@@ -532,8 +533,8 @@ GtkTextBuffer* md_app_get_buffer(MdApp* app)
 void md_app_show_about(MdApp* app)
 {
     g_return_if_fail(MD_IS_APP(app));
-    gtk_show_about_dialog(GTK_WINDOW(app->window), "program-name", "md-viewer", "version", "0.1.0",
-                          "comments", "A lightweight Markdown viewer for technical docs.",
+    gtk_show_about_dialog(GTK_WINDOW(app->window), "program-name", "Shiny Chainsaw", "version",
+                          "0.1.0", "comments", "A lightweight Markdown viewer for technical docs.",
                           "logo-icon-name", "text-x-generic", NULL);
 }
 
@@ -559,7 +560,7 @@ void md_app_show_open_dialog(MdApp* app)
         g_free(path);
         if (error != NULL)
         {
-            g_printerr("md-viewer: %s\n", error->message);
+            g_printerr("shiny-chainsaw: %s\n", error->message);
             g_error_free(error);
         }
     }
@@ -575,7 +576,7 @@ static GtkWidget* headerbar_new(MdApp* app)
 {
     GtkWidget* header = gtk_header_bar_new();
     gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(header), TRUE);
-    gtk_header_bar_set_title(GTK_HEADER_BAR(header), "md-viewer");
+    gtk_header_bar_set_title(GTK_HEADER_BAR(header), "Shiny Chainsaw");
     gtk_header_bar_set_subtitle(GTK_HEADER_BAR(header), "No file open");
 
     app->sidebar_button = gtk_toggle_button_new();
@@ -609,7 +610,7 @@ static GtkWidget* headerbar_new(MdApp* app)
     g_menu_append_item(menu, recent_item);
     g_object_unref(recent_item);
     g_menu_append(menu, "Reload file", "app.reload");
-    g_menu_append(menu, "About md-viewer", "app.about");
+    g_menu_append(menu, "About Shiny Chainsaw", "app.about");
     g_menu_append(menu, "Quit", "app.quit");
     gtk_menu_button_set_menu_model(GTK_MENU_BUTTON(menu_button), G_MENU_MODEL(menu));
     g_object_unref(menu);
@@ -764,10 +765,11 @@ static gchar* read_file_to_string(const gchar* path, GError** error)
 static guint md_image_max_width(void)
 {
     GSettingsSchemaSource* source = g_settings_schema_source_get_default();
-    GSettingsSchema* schema = g_settings_schema_source_lookup(source, "org.example.mdviewer", TRUE);
+    GSettingsSchema* schema =
+        g_settings_schema_source_lookup(source, "io.github.Fate1099.shiny-chainsaw", TRUE);
     if (schema == NULL)
         return 0;
-    GSettings* settings = g_settings_new("org.example.mdviewer");
+    GSettings* settings = g_settings_new("io.github.Fate1099.shiny-chainsaw");
     gint value = g_settings_get_int(settings, "image-max-width");
     g_object_unref(settings);
     g_settings_schema_unref(schema);
@@ -786,7 +788,7 @@ static void render_markdown(MdApp* app, const gchar* markdown)
     MdNode* doc = md_parse(markdown, &opts, &error);
     if (doc == NULL)
     {
-        g_printerr("md-viewer: parse error: %s\n", error != NULL ? error->message : "unknown");
+        g_printerr("shiny-chainsaw: parse error: %s\n", error != NULL ? error->message : "unknown");
         g_clear_error(&error);
         return;
     }
@@ -844,7 +846,7 @@ static void queue_file(MdApp* app, const gchar* path)
         md_app_open_file(app, path, &error);
         if (error != NULL)
         {
-            g_printerr("md-viewer: %s\n", error->message);
+            g_printerr("shiny-chainsaw: %s\n", error->message);
             g_error_free(error);
         }
     }
@@ -907,7 +909,7 @@ static void md_app_activate(GApplication* application)
     gtk_box_pack_start(GTK_BOX(layout), statusbar, FALSE, FALSE, 0);
 
     app->window = gtk_application_window_new(GTK_APPLICATION(app));
-    gtk_window_set_title(GTK_WINDOW(app->window), "md-viewer");
+    gtk_window_set_title(GTK_WINDOW(app->window), "Shiny Chainsaw");
     gtk_window_set_default_size(GTK_WINDOW(app->window), 900, 640);
     gtk_window_set_titlebar(GTK_WINDOW(app->window), header);
     gtk_container_add(GTK_CONTAINER(app->window), layout);
@@ -929,7 +931,7 @@ static void md_app_activate(GApplication* application)
             md_app_open_file(app, g_ptr_array_index(app->pending_files, i), &error);
             if (error != NULL)
             {
-                g_printerr("md-viewer: %s\n", error->message);
+                g_printerr("shiny-chainsaw: %s\n", error->message);
                 g_error_free(error);
             }
         }
@@ -983,6 +985,6 @@ MdApp* md_app_new(void)
     /* CLI options are handled in main.c: -f/--file is rewritten into a
      * positional argument so GApplication's open signal covers both a fresh
      * launch and a handoff to a running instance. */
-    return g_object_new(MD_TYPE_APP, "application-id", "org.example.mdviewer", "flags",
+    return g_object_new(MD_TYPE_APP, "application-id", "io.github.Fate1099.shiny-chainsaw", "flags",
                         G_APPLICATION_HANDLES_OPEN, NULL);
 }

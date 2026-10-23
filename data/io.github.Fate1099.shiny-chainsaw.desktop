@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=md-viewer
+Name=Shiny Chainsaw
 GenericName=Markdown Viewer
 Comment=Lightweight Markdown viewer for technical docs
-Exec=md-viewer %F
-Icon=md-viewer
+Exec=shiny-chainsaw %F
+Icon=shiny-chainsaw
 Terminal=false
 Categories=Utility;TextEditor;
 MimeType=text/markdown;

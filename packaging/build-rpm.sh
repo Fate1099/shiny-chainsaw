@@ -14,7 +14,7 @@ cd "$ROOT"
 
 # Keep the spec's Version in sync with meson.build.
 VERSION="$(sed -n "s/^[[:space:]]*version:[[:space:]]*'\([^']*\)'.*/\1/p" meson.build | head -1)"
-SPEC_VERSION="$(sed -n 's/^Version:[[:space:]]*//p' packaging/md-viewer.spec | head -1)"
+SPEC_VERSION="$(sed -n 's/^Version:[[:space:]]*//p' packaging/shiny-chainsaw.spec | head -1)"
 if [ "$VERSION" != "$SPEC_VERSION" ]; then
     echo "error: meson.build version '$VERSION' does not match spec Version '$SPEC_VERSION'" >&2
     exit 1
@@ -39,13 +39,13 @@ meson dist -C "$BUILD" --no-tests --allow-dirty
 
 TARBALL=""
 for d in "$BUILD/meson-dist" "meson-dist"; do
-    if [ -f "$d/md-viewer-$VERSION.tar.xz" ]; then
-        TARBALL="$d/md-viewer-$VERSION.tar.xz"
+    if [ -f "$d/shiny-chainsaw-$VERSION.tar.xz" ]; then
+        TARBALL="$d/shiny-chainsaw-$VERSION.tar.xz"
         break
     fi
 done
 if [ -z "$TARBALL" ]; then
-    echo "error: meson dist did not produce md-viewer-$VERSION.tar.xz" >&2
+    echo "error: meson dist did not produce shiny-chainsaw-$VERSION.tar.xz" >&2
     exit 1
 fi
 
@@ -54,11 +54,11 @@ TOPDIR="$ROOT/dist/rpmbuild"
 rm -rf "$TOPDIR"
 mkdir -p "$TOPDIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 cp "$TARBALL" "$TOPDIR/SOURCES/"
-cp packaging/md-viewer.spec "$TOPDIR/SPECS/"
+cp packaging/shiny-chainsaw.spec "$TOPDIR/SPECS/"
 
-rpmbuild --define "_topdir $TOPDIR" -ba "$TOPDIR/SPECS/md-viewer.spec"
+rpmbuild --define "_topdir $TOPDIR" -ba "$TOPDIR/SPECS/shiny-chainsaw.spec"
 
-RPM="$(find "$TOPDIR/RPMS" -name 'md-viewer-[0-9]*.fc*.x86_64.rpm' | head -1)"
+RPM="$(find "$TOPDIR/RPMS" -name 'shiny-chainsaw-[0-9]*.fc*.x86_64.rpm' | head -1)"
 echo
 echo "Built: $RPM"
 

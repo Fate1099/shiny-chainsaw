@@ -8,7 +8,7 @@ G_BEGIN_DECLS
 #define MD_RECENT_MAX 10
 
 /**
- * Path backing the recent-file list: "<XDG config dir>/md-viewer/recent.txt".
+ * Path backing the recent-file list: "<XDG config dir>/shiny-chainsaw/recent.txt".
  * (transfer full)
  */
 gchar* md_recent_default_path(void);

@@ -9,7 +9,7 @@
 
 int main(void)
 {
-    gchar* dir = g_strdup_printf("%s/md-viewer-recent-%u", g_get_tmp_dir(), g_random_int());
+    gchar* dir = g_strdup_printf("%s/shiny-chainsaw-recent-%u", g_get_tmp_dir(), g_random_int());
     g_mkdir_with_parents(dir, 0700);
     gchar* list_file = g_build_filename(dir, "recent.txt", NULL);
     gchar* a = g_build_filename(dir, "a.md", NULL);

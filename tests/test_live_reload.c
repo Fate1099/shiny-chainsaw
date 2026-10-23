@@ -41,8 +41,8 @@ int main(void)
     }
 
     guint stamp = g_random_int();
-    gchar* dir = g_strdup_printf("%s/md-viewer-live-%u", g_get_tmp_dir(), stamp);
-    gchar* config = g_strdup_printf("%s/md-viewer-live-config-%u", g_get_tmp_dir(), stamp);
+    gchar* dir = g_strdup_printf("%s/shiny-chainsaw-live-%u", g_get_tmp_dir(), stamp);
+    gchar* config = g_strdup_printf("%s/shiny-chainsaw-live-config-%u", g_get_tmp_dir(), stamp);
     g_mkdir_with_parents(dir, 0700);
     g_mkdir_with_parents(config, 0700);
     g_setenv("XDG_CONFIG_HOME", config, TRUE);
@@ -55,9 +55,9 @@ int main(void)
     MdApp* app = md_app_new();
 
     /* A test-only id: registering under the real one would hand the activate
-     * over to a md-viewer that is already running and leave this instance
+     * over to a shiny-chainsaw that is already running and leave this instance
      * without a window. */
-    g_application_set_application_id(G_APPLICATION(app), "org.example.mdviewer.test");
+    g_application_set_application_id(G_APPLICATION(app), "io.github.Fate1099.shiny-chainsaw.test");
 
     GError* register_error = NULL;
     if (!g_application_register(G_APPLICATION(app), NULL, &register_error))
@@ -117,8 +117,8 @@ int main(void)
     g_object_unref(app);
     g_remove(path);
     g_remove(other);
-    g_remove(g_build_filename(config, "md-viewer", "recent.txt", NULL));
-    g_remove(g_build_filename(config, "md-viewer", NULL));
+    g_remove(g_build_filename(config, "shiny-chainsaw", "recent.txt", NULL));
+    g_remove(g_build_filename(config, "shiny-chainsaw", NULL));
     g_remove(config);
     g_remove(dir);
     g_free(path);

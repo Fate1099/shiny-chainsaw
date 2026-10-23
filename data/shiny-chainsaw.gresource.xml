@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/org/example/mdviewer">
+  <gresource prefix="/io/github/Fate1099/shiny-chainsaw">
     <file>manual.md</file>
   </gresource>
 </gresources>

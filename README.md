@@ -1,4 +1,4 @@
-# md-viewer
+# Shiny Chainsaw
 
 [![build](https://github.com/Fate1099/shiny-chainsaw/actions/workflows/ci.yml/badge.svg)](https://github.com/Fate1099/shiny-chainsaw/actions/workflows/ci.yml)
 
@@ -18,7 +18,7 @@ renderers — the parser lives in-repo and is implemented in pure C.
 - Raw HTML and HTML comments kept as literal text in the view (nothing is dropped)
 - Live reload: the open file re-renders when it changes on disk, keeping the
   scroll position and the current search results
-- Recent files in the menu, persisted to `<XDG config dir>/md-viewer/recent.txt`
+- Recent files in the menu, persisted to `<XDG config dir>/shiny-chainsaw/recent.txt`
 
 ## Requirements
 
@@ -33,8 +33,8 @@ renderers — the parser lives in-repo and is implemented in pure C.
 ```sh
 meson setup build
 ninja -C build
-./build/src/md-viewer            # open a file picker
-./build/src/md-viewer -f doc.md  # open a file directly
+./build/src/shiny-chainsaw            # open a file picker
+./build/src/shiny-chainsaw -f doc.md  # open a file directly
 ```
 
 ## Test
@@ -68,7 +68,7 @@ Build and install an RPM for Fedora-style distros (requires `rpmbuild`, the
 
 The script validates the version matches `meson.build`, builds + tests a
 release build, archives the source with `meson dist`, and feeds it to
-`rpmbuild`. See `packaging/md-viewer.spec`.
+`rpmbuild`. See `packaging/shiny-chainsaw.spec`.
 
 ## Project layout
 

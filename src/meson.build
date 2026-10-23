@@ -1,9 +1,9 @@
 gnome = import('gnome')
 
-resources = gnome.compile_resources('mdviewer-resources',
-  '../data/md-viewer.gresource.xml',
+resources = gnome.compile_resources('shinychainsaw-resources',
+  '../data/shiny-chainsaw.gresource.xml',
   source_dir: '../data',
-  c_name: 'mdviewer',
+  c_name: 'shinychainsaw',
 )
 
 app_sources = files(
@@ -17,7 +17,7 @@ app_sources = files(
 
 soupdep = dependency('libsoup-3.0', version: '>= 3.0')
 
-executable('md-viewer',
+executable('shiny-chainsaw',
   app_sources,
   include_directories: include_directories('.'),
   dependencies: [gtkdep, soupdep],

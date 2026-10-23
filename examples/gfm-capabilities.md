@@ -1,6 +1,6 @@
 # GFM Capability Demonstrations
 
-Open this file in md-viewer to visually verify the GFM extensions. Each
+Open this file in Shiny Chainsaw to visually verify the GFM extensions. Each
 section shows the expected result next to the raw Markdown.
 
 ## Strikethrough

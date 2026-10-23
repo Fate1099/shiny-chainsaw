@@ -1,4 +1,4 @@
-# md-viewer manual
+# Shiny Chainsaw manual
 
 A **pure**, *lightweight* Markdown viewer for `technical docs`. This very file is
 the default document: it doubles as a small manual **and** a torture test for
@@ -58,7 +58,7 @@ in the menu lists the last ten files.
 #include <stdio.h>
 
 int main(void) {
-    printf("hello, md-viewer!\n");
+    printf("hello, shiny-chainsaw!\n");
     return 0;
 }
 ```

@@ -5,7 +5,7 @@
 
 gchar* md_recent_default_path(void)
 {
-    return g_build_filename(g_get_user_config_dir(), "md-viewer", "recent.txt", NULL);
+    return g_build_filename(g_get_user_config_dir(), "shiny-chainsaw", "recent.txt", NULL);
 }
 
 /* Absolute paths are stored as given; relative ones are resolved against the

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to md-viewer are documented here. The format is based on
+All notable changes to shiny-chainsaw are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -82,7 +82,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   position is restored, and the current search query is re-run. "Reload file"
   in the menu, `Ctrl+R`.
 - Recent files: `src/recent.c` keeps the ten most recently opened paths, one per
-  line, in `<XDG config dir>/md-viewer/recent.txt`. The header-bar menu has an
+  line, in `<XDG config dir>/shiny-chainsaw/recent.txt`. The header-bar menu has an
   "Open recent" submenu; opening a file moves it to the front of the list.
 - `tests/test_recent.c` (suite `unit`) exercises the recent list: ordering,
   deduplication, truncation, and the round trip through the file.
@@ -124,7 +124,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   asynchronously (remote via libsoup3, local files, and paths relative to the
   opened document). The alt text is shown as a caption under the image; a
   broken-image placeholder is shown when loading or decoding fails.
-- `image-max-width` GSettings key (`org.example.mdviewer`) to cap image width;
+- `image-max-width` GSettings key (`io.github.Fate1099.shiny-chainsaw`) to cap image width;
   0 (default) fits images to the window width without upscaling.
 - HTML comments (`<!-- ... -->`) are recognized as raw HTML by the GFM grammar
   and passed through to the output.
@@ -148,7 +148,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Bundled manual rendered via GResource on first launch.
 - Meson build with lint target (clang-format / clang-tidy) and table-driven
   parser test suite (79 cases).
-- RPM packaging pipeline (`packaging/md-viewer.spec` + `build-rpm.sh`) that
+- RPM packaging pipeline (`packaging/shiny-chainsaw.spec` + `build-rpm.sh`) that
   builds a release, runs the tests, and produces/installs an RPM.
 
 ### Fixed
@@ -181,4 +181,4 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Markdown Extra extensions (definition lists, footnotes, abbreviations)
 - A CSS theme file in `data/`
 - Tagged releases, with `CHANGELOG.md` versioned and `meson.build` /
-  `packaging/md-viewer.spec` kept in step
+  `packaging/shiny-chainsaw.spec` kept in step

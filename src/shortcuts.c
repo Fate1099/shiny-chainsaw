@@ -32,7 +32,7 @@ static void open_recent_activated(MdApp* app, GVariant* parameter)
     md_app_open_file(app, path, &error);
     if (error != NULL)
     {
-        g_printerr("md-viewer: %s\n", error->message);
+        g_printerr("shiny-chainsaw: %s\n", error->message);
         g_clear_error(&error);
     }
 }

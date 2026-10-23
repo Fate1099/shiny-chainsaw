@@ -4,7 +4,7 @@ Tracked against the checklist in `AGENTS.md`.
 
 ## Scope
 
-`md-viewer` targets a **single superset spec with feature flags**, not three
+`shiny-chainsaw` targets a **single superset spec with feature flags**, not three
 separate parsers. The core is **CommonMark**; **GFM** and **Markdown Extra**
 are layered on as extension flags. One AST + one renderer serves all flavors —
 differences live only in what the parser produces.
@@ -93,7 +93,7 @@ Flavors:
 - [x] Generated CommonMark fixture (`scripts/gen-commonmark-spec.py`) instead of
       a hand-copied one
 - [ ] Tagged releases, with `CHANGELOG.md` versioned and `meson.build` /
-      `packaging/md-viewer.spec` kept in step
+      `packaging/shiny-chainsaw.spec` kept in step
 
 ## Design notes
 
