@@ -53,3 +53,21 @@ recent_test = executable(
 )
 
 test('recent', recent_test, suite: 'unit')
+
+# Drives the real GtkApplication (app.c + shortcuts.c) to exercise live reload
+# and the recent-file wiring. Skips itself when there is no display.
+live_reload_test = executable(
+  'test_live_reload',
+  sources: [
+    'test_live_reload.c',
+    '../src/app.c',
+    '../src/parser.c',
+    '../src/recent.c',
+    '../src/render.c',
+    '../src/shortcuts.c',
+  ],
+  include_directories: include_directories('../src'),
+  dependencies: [test_dep, gtkdep, dependency('libsoup-3.0', version: '>= 3.0')],
+)
+
+test('live-reload', live_reload_test, suite: 'render')

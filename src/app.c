@@ -1,5 +1,6 @@
 #include "app.h"
 #include "parser.h"
+#include "recent.h"
 #include "render.h"
 #include "shortcuts.h"
 
@@ -22,10 +23,17 @@ struct _MdApp
     GtkWidget* zoom_button;
     GtkWidget* search_controls;
     GPtrArray* pending_files; /* of gchar*, opened once the window exists */
+    GPtrArray* recent_files;  /* of gchar*, most recently opened first */
     GArray* search_matches;   /* of SearchMatch */
+    GMenu* recent_menu;       /* "Open recent" submenu, rebuilt on every open */
     SoupSession* session;
-    GtkCssProvider* css; /* zoom styling, added once to the screen */
-    gchar* base_dir;     /* dir of the currently open file, for image paths */
+    GtkCssProvider* css;        /* zoom styling, added once to the screen */
+    gchar* base_dir;            /* dir of the currently open file, for image paths */
+    gchar* current_path;        /* absolute path of the open file */
+    gchar* current_markdown;    /* contents last rendered, to skip no-op reloads */
+    gchar* recent_path;         /* file backing the recent list */
+    GFileMonitor* file_monitor; /* live reload of the open file */
+    guint reload_source;        /* one-shot reload debounce, 0 when idle */
     guint image_max_width;
     gint search_index;
     double zoom;
@@ -337,6 +345,187 @@ static void search_next_clicked(GtkButton* button, gpointer user_data)
 }
 
 /* ------------------------------------------------------------------ */
+/* Recent files                                                        */
+/* ------------------------------------------------------------------ */
+
+static void rebuild_recent_menu(MdApp* app)
+{
+    g_menu_remove_all(app->recent_menu);
+
+    if (app->recent_files->len == 0)
+    {
+        GMenuItem* empty = g_menu_item_new("No recent files", NULL);
+        g_menu_append_item(app->recent_menu, empty);
+        g_object_unref(empty);
+        return;
+    }
+
+    for (guint i = 0; i < app->recent_files->len; i++)
+    {
+        const gchar* path = g_ptr_array_index(app->recent_files, i);
+        gchar* basename = g_path_get_basename(path);
+        GMenuItem* item = g_menu_item_new(basename, "app.open-recent");
+        g_menu_item_set_action_and_target_value(item, "app.open-recent",
+                                                g_variant_new_string(path));
+        g_menu_append_item(app->recent_menu, item);
+        g_object_unref(item);
+        g_free(basename);
+    }
+}
+
+static void record_recent_file(MdApp* app, const gchar* path)
+{
+    if (!md_recent_add(app->recent_files, path))
+        return;
+
+    GError* error = NULL;
+    if (!md_recent_write(app->recent_path, app->recent_files, &error))
+    {
+        g_printerr("md-viewer: recent files not saved: %s\n",
+                   error != NULL ? error->message : "unknown");
+        g_clear_error(&error);
+    }
+    rebuild_recent_menu(app);
+}
+
+/* ------------------------------------------------------------------ */
+/* Live reload                                                         */
+/* ------------------------------------------------------------------ */
+
+#define MD_RELOAD_DEBOUNCE_MS 200
+
+static void reload_current_file(MdApp* app);
+static void on_file_changed(GFileMonitor* monitor, GFile* file, GFile* other,
+                            GFileMonitorEvent event, gpointer user_data);
+
+static void stop_file_monitor(MdApp* app)
+{
+    if (app->reload_source != 0)
+    {
+        g_source_remove(app->reload_source);
+        app->reload_source = 0;
+    }
+    g_clear_pointer(&app->file_monitor, g_object_unref);
+}
+
+static void start_file_monitor(MdApp* app, const gchar* path)
+{
+    stop_file_monitor(app);
+
+    GFile* file = g_file_new_for_path(path);
+    app->file_monitor = g_file_monitor(file, G_FILE_MONITOR_NONE, NULL, NULL);
+    g_object_unref(file);
+
+    if (app->file_monitor != NULL)
+        g_signal_connect(app->file_monitor, "changed", G_CALLBACK(on_file_changed), app);
+    else
+        g_printerr("md-viewer: live reload unavailable for %s\n", path);
+}
+
+static gboolean reload_timeout(gpointer user_data)
+{
+    MdApp* app = user_data;
+    app->reload_source = 0;
+    reload_current_file(app);
+    return G_SOURCE_REMOVE;
+}
+
+static void on_file_changed(GFileMonitor* monitor, GFile* file, GFile* other,
+                            GFileMonitorEvent event, gpointer user_data)
+{
+    (void)monitor;
+    (void)file;
+    (void)other;
+    MdApp* app = user_data;
+
+    /* Editors save either in place (CHANGED) or by writing a temporary file
+     * and renaming it over the original (DELETED + CREATED). Both should
+     * reload; CHANGES_DONE_HINT is the tail of a burst. */
+    switch (event)
+    {
+    case G_FILE_MONITOR_EVENT_CHANGED:
+    case G_FILE_MONITOR_EVENT_CHANGES_DONE_HINT:
+    case G_FILE_MONITOR_EVENT_CREATED:
+        break;
+    default:
+        return;
+    }
+
+    /* Editors write in bursts; collapse them into a single reload. */
+    if (app->reload_source == 0)
+        app->reload_source = g_timeout_add(MD_RELOAD_DEBOUNCE_MS, reload_timeout, app);
+}
+
+static void reload_current_file(MdApp* app)
+{
+    if (app->current_path == NULL)
+        return;
+
+    gchar* contents = NULL;
+    GError* error = NULL;
+    if (!g_file_get_contents(app->current_path, &contents, NULL, &error))
+    {
+        g_printerr("md-viewer: reload failed: %s\n", error != NULL ? error->message : "unknown");
+        g_clear_error(&error);
+        return;
+    }
+
+    /* inotify also fires on a plain touch; only re-render real content changes. */
+    if (app->current_markdown != NULL && g_strcmp0(contents, app->current_markdown) == 0)
+    {
+        g_free(contents);
+        return;
+    }
+
+    /* Keep the reader where they are: remember the visible range before the
+     * buffer is cleared, then scroll to the same offset in the new render. */
+    GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->text_view));
+    gint scroll_offset = 0;
+    GdkRectangle visible;
+    gtk_text_view_get_visible_rect(GTK_TEXT_VIEW(app->text_view), &visible);
+    GtkTextIter first_visible;
+    gtk_text_view_get_line_at_y(GTK_TEXT_VIEW(app->text_view), &first_visible, visible.y, NULL);
+    scroll_offset = gtk_text_iter_get_offset(&first_visible);
+
+    g_free(app->current_markdown);
+    app->current_markdown = contents;
+
+    render_markdown(app, contents);
+
+    if (scroll_offset > 0)
+    {
+        GtkTextIter end;
+        gtk_text_buffer_get_end_iter(buffer, &end);
+        gint end_offset = gtk_text_iter_get_offset(&end);
+        if (scroll_offset > end_offset)
+            scroll_offset = end_offset;
+        GtkTextIter iter;
+        gtk_text_buffer_get_iter_at_offset(buffer, &iter, scroll_offset);
+        gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(app->text_view), &iter, 0.0, FALSE, 0.0, 0.0);
+    }
+
+    guint ctx = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->statusbar), "main");
+    gtk_statusbar_remove_all(GTK_STATUSBAR(app->statusbar), ctx);
+    gtk_statusbar_push(GTK_STATUSBAR(app->statusbar), ctx, "Reloaded (file changed on disk)");
+}
+
+void md_app_reload(MdApp* app)
+{
+    g_return_if_fail(MD_IS_APP(app));
+    reload_current_file(app);
+}
+
+/* The document buffer. Exposed so the render suite can assert on what the app
+ * actually painted; (transfer none). */
+GtkTextBuffer* md_app_get_buffer(MdApp* app)
+{
+    g_return_val_if_fail(MD_IS_APP(app), NULL);
+    if (app->text_view == NULL)
+        return NULL;
+    return gtk_text_view_get_buffer(GTK_TEXT_VIEW(app->text_view));
+}
+
+/* ------------------------------------------------------------------ */
 /* Dialogs                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -413,6 +602,13 @@ static GtkWidget* headerbar_new(MdApp* app)
     gtk_button_set_image(GTK_BUTTON(menu_button),
                          gtk_image_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_BUTTON));
     GMenu* menu = g_menu_new();
+    app->recent_menu = g_menu_new();
+    rebuild_recent_menu(app);
+    GMenuItem* recent_item = g_menu_item_new("Open recent", NULL);
+    g_menu_item_set_submenu(recent_item, G_MENU_MODEL(app->recent_menu));
+    g_menu_append_item(menu, recent_item);
+    g_object_unref(recent_item);
+    g_menu_append(menu, "Reload file", "app.reload");
     g_menu_append(menu, "About md-viewer", "app.about");
     g_menu_append(menu, "Quit", "app.quit");
     gtk_menu_button_set_menu_model(GTK_MENU_BUTTON(menu_button), G_MENU_MODEL(menu));
@@ -603,8 +799,8 @@ static void render_markdown(MdApp* app, const gchar* markdown)
     populate_outline(app, doc);
     md_node_free(doc);
 
-    g_array_set_size(app->search_matches, 0);
-    update_search_label(app);
+    /* Re-run the current query so search results survive a reload. */
+    do_search(app);
 }
 
 void md_app_open_file(MdApp* app, const gchar* path, GError** error)
@@ -619,8 +815,12 @@ void md_app_open_file(MdApp* app, const gchar* path, GError** error)
     g_free(app->base_dir);
     app->base_dir = g_path_get_dirname(path);
 
+    g_free(app->current_path);
+    app->current_path = g_strdup(path);
+    g_free(app->current_markdown);
+    app->current_markdown = markdown;
+
     render_markdown(app, markdown);
-    g_free(markdown);
 
     gchar* basename = g_path_get_basename(path);
     gtk_header_bar_set_subtitle(GTK_HEADER_BAR(app->headerbar), path);
@@ -630,6 +830,9 @@ void md_app_open_file(MdApp* app, const gchar* path, GError** error)
     guint ctx = gtk_statusbar_get_context_id(GTK_STATUSBAR(app->statusbar), "main");
     gtk_statusbar_remove_all(GTK_STATUSBAR(app->statusbar), ctx);
     gtk_statusbar_push(GTK_STATUSBAR(app->statusbar), ctx, path);
+
+    record_recent_file(app, path);
+    start_file_monitor(app, path);
 }
 
 /* Queue a file to open now (window exists) or once activate builds it. */
@@ -743,20 +946,28 @@ static void md_app_init(MdApp* app)
     app->search_matches = g_array_new(FALSE, TRUE, sizeof(SearchMatch));
     app->session = soup_session_new();
     app->image_max_width = md_image_max_width();
+    app->recent_path = md_recent_default_path();
+    app->recent_files = md_recent_read(app->recent_path);
 }
 
 static void md_app_dispose(GObject* object)
 {
     MdApp* app = MD_APP(object);
+    /* A pending reload holds a timeout referencing the app; drop it first. */
+    stop_file_monitor(app);
     /* In-flight image loads hold a borrowed pointer to the session; cancel them
      * before the session goes away. */
     if (app->text_view != NULL)
         md_render_cancel_loads(GTK_TEXT_VIEW(app->text_view));
     g_clear_pointer(&app->pending_files, g_ptr_array_unref);
+    g_clear_pointer(&app->recent_files, g_ptr_array_unref);
     g_clear_pointer(&app->search_matches, g_array_unref);
     g_clear_pointer(&app->session, g_object_unref);
     g_clear_pointer(&app->css, g_object_unref);
     g_clear_pointer(&app->base_dir, g_free);
+    g_clear_pointer(&app->current_path, g_free);
+    g_clear_pointer(&app->current_markdown, g_free);
+    g_clear_pointer(&app->recent_path, g_free);
     G_OBJECT_CLASS(md_app_parent_class)->dispose(object);
 }
 

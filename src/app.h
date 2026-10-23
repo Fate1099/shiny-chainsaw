@@ -12,6 +12,8 @@ G_DECLARE_FINAL_TYPE(MdApp, md_app, MD, APP, GtkApplication)
 MdApp* md_app_new(void);
 
 void md_app_open_file(MdApp* app, const gchar* path, GError** error);
+void md_app_reload(MdApp* app);
+GtkTextBuffer* md_app_get_buffer(MdApp* app);
 void md_app_show_open_dialog(MdApp* app);
 void md_app_show_about(MdApp* app);
 void md_app_toggle_sidebar(MdApp* app);
