@@ -44,3 +44,12 @@ render_test = executable(
 )
 
 test('render', render_test, suite: 'render')
+
+recent_test = executable(
+  'test_recent',
+  sources: ['test_recent.c', '../src/recent.c'],
+  include_directories: include_directories('../src'),
+  dependencies: [test_dep],
+)
+
+test('recent', recent_test, suite: 'unit')

@@ -36,7 +36,7 @@ jobs:
 
       # Headless suites only: they are the ones valgrind can cover without GTK
       # thread pools showing up as "possibly lost".
-      - name: Valgrind (parser, conformance, robustness)
+      - name: Valgrind (parser, conformance, robustness, recent)
         run: |
           valgrind --leak-check=full --error-exitcode=1 \
             ./build/tests/test_parser
@@ -46,3 +46,5 @@ jobs:
             ./build/tests/spec_tests tests/spec/gfm.txt gfm
           valgrind --leak-check=full --error-exitcode=1 \
             ./build/tests/test_robustness
+          valgrind --leak-check=full --error-exitcode=1 \
+            ./build/tests/test_recent

@@ -10,6 +10,7 @@ app_sources = files(
   'app.c',
   'main.c',
   'parser.c',
+  'recent.c',
   'render.c',
   'shortcuts.c',
 ) + resources
