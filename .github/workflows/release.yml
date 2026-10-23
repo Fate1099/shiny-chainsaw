@@ -107,6 +107,8 @@ jobs:
   release:
     needs: [source, rpm, deb]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -115,9 +117,15 @@ jobs:
 
       - name: Create the release
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "Shiny Chainsaw $GITHUB_REF_NAME" \
-            --generate-notes \
-            $(find artifacts -type f)
+          files="$(find artifacts -type f)"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" $files --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "Shiny Chainsaw $GITHUB_REF_NAME" \
+              --verify-tag \
+              --generate-notes \
+              $files
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
